@@ -36,22 +36,37 @@ class ArtistService:
         """
         self.client = client
 
-    async def get_artist_tracks(self, artist_id: str) -> List[Any]:
-        """Get all tracks from an artist with pagination.
+    async def get_artist_tracks(self, artist_id: str, max_tracks: Optional[int] = None) -> List[Any]:
+        """Get tracks from an artist with pagination and early exit optimization.
+
+        Performance optimization: When max_tracks is specified (e.g., for --in-top filter),
+        pagination stops once we have enough tracks instead of fetching all tracks.
 
         Args:
             artist_id: Yandex Music artist ID
+            max_tracks: Maximum number of tracks to fetch (None = fetch all)
+                       Enables early pagination exit for --in-top optimization
 
         Returns:
-            List of track objects from Yandex Music API
+            List of track objects from Yandex Music API (up to max_tracks if specified)
+
+        Examples:
+            >>> # Fetch all tracks (old behavior)
+            >>> tracks = await service.get_artist_tracks("123456")
+            >>> len(tracks)  # e.g., 243 tracks
+
+            >>> # Fetch only top 10 tracks (optimized for --in-top 10)
+            >>> tracks = await service.get_artist_tracks("123456", max_tracks=10)
+            >>> len(tracks)  # 10 tracks (1 API call instead of 13)
         """
         all_tracks = []
         page = 0
-        page_size = 20
+        # Increased from 20 to 50 for better performance (fewer API calls)
+        page_size = 50
 
         try:
             while True:
-                logger.debug(f"Fetching artist tracks page {page}")
+                logger.debug(f"Fetching artist tracks page {page} (max_tracks={max_tracks})")
                 tracks_result = await asyncio.to_thread(
                     self.client.artists_tracks,
                     artist_id,
@@ -64,6 +79,14 @@ class ArtistService:
 
                 all_tracks.extend(tracks_result.tracks)
 
+                # OPTIMIZATION: Early exit if we have enough tracks for --in-top filter
+                if max_tracks and len(all_tracks) >= max_tracks:
+                    logger.debug(
+                        f"Early exit: fetched {len(all_tracks)} tracks "
+                        f"(needed {max_tracks}) - saved API calls"
+                    )
+                    break
+
                 # Check if we have more pages
                 if len(tracks_result.tracks) < page_size:
                     break
@@ -75,7 +98,10 @@ class ArtistService:
                     logger.warning("Reached page limit of 100, stopping")
                     break
 
-            logger.info(f"Retrieved {len(all_tracks)} tracks from artist {artist_id}")
+            logger.info(
+                f"Retrieved {len(all_tracks)} tracks from artist {artist_id}"
+                + (f" (requested max_tracks={max_tracks})" if max_tracks else "")
+            )
             return all_tracks
 
         except Exception as e:

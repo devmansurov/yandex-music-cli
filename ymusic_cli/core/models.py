@@ -93,21 +93,59 @@ class DownloadOptions:
     countries: List[str] = field(default_factory=list)
     genres: List[str] = field(default_factory=list)
     exclude_explicit: bool = False
-    
+
     # Quality settings
     quality: Quality = Quality.HIGH
-    
+
     # Similar artists options
     similar_limit: int = 5
     similar_country_filter: Optional[str] = None  # 'same' or country codes
     min_tracks_per_artist: int = 3
-    
+
     # Recursive discovery options
     max_depth: int = 2
     max_total_artists: int = 50
     songs_per_artist: int = 3
     priority_countries: List[str] = field(default_factory=list)
     exclude_artists: Set[str] = field(default_factory=set)
+
+    def get_max_tracks_needed(self, total_tracks: Optional[int] = None) -> Optional[int]:
+        """Calculate maximum tracks needed for --in-top filtering.
+
+        This optimization allows early pagination exit when fetching tracks.
+        For --in-top filters, we only need to fetch enough tracks to satisfy
+        the top N requirement, not all artist tracks.
+
+        Args:
+            total_tracks: Total number of tracks (required for percentage mode)
+
+        Returns:
+            Maximum number of tracks needed, or None if no limit
+
+        Examples:
+            >>> options = DownloadOptions(in_top_n=10)
+            >>> options.get_max_tracks_needed()
+            10
+
+            >>> options = DownloadOptions(in_top_percent=5.0)
+            >>> options.get_max_tracks_needed(total_tracks=200)
+            10  # 5% of 200 = 10
+        """
+        # Priority 1: --in-top filter (numeric mode)
+        if self.in_top_n is not None and self.years:
+            return self.in_top_n
+
+        # Priority 2: --in-top filter (percentage mode) - requires total_tracks
+        if self.in_top_percent is not None and self.years and total_tracks is not None:
+            import math
+            return math.ceil(total_tracks * self.in_top_percent / 100)
+
+        # Priority 3: --top selection (no year filter)
+        if self.top_n is not None:
+            return self.top_n
+
+        # No limit - fetch all tracks
+        return None
 
     # Year-based discovery options
     enable_year_filtering_for_discovery: bool = False  # Skip artists without year content

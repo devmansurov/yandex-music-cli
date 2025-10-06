@@ -130,14 +130,30 @@ class YandexMusicService(MusicService):
             raise ServiceError(f"Failed to get artist: {e}", "yandex_music")
     
     async def get_artist_tracks(self, artist_id: str, options: DownloadOptions) -> List[Track]:
-        """Get tracks for an artist with filtering."""
+        """Get tracks for an artist with filtering and caching optimization."""
         if not self.artist_service:
             raise ServiceError("Artist service not initialized", "yandex_music")
 
         try:
-            # Get all tracks using artist service (SOLID: Single Responsibility)
+            # OPTIMIZATION: Check cache for --in-top filtered results
+            if (options.in_top_n or options.in_top_percent) and options.years and self.cache:
+                # Create cache key based on filter criteria
+                in_top_key = f"{options.in_top_n}" if options.in_top_n else f"{options.in_top_percent}%"
+                cache_key = f"top_tracks:{artist_id}:{in_top_key}:{options.years[0]}-{options.years[1]}"
+
+                cached_tracks = await self.cache.get(cache_key)
+                if cached_tracks:
+                    self.logger.info(f"✓ Cache hit for {cache_key} (saved API calls)")
+                    return cached_tracks
+
+            # OPTIMIZATION: Calculate max tracks needed for early pagination exit
+            # For --in-top numeric mode, we know exactly how many tracks to fetch
+            # For --in-top percentage mode, we need to fetch at least one page to know total
+            max_tracks_needed = options.get_max_tracks_needed() if options.in_top_n else None
+
+            # Get tracks using artist service with optimization
             # Note: Yandex API already returns tracks sorted by popularity
-            all_tracks = await self.artist_service.get_artist_tracks(artist_id)
+            all_tracks = await self.artist_service.get_artist_tracks(artist_id, max_tracks=max_tracks_needed)
 
             if not all_tracks:
                 return []
@@ -196,6 +212,14 @@ class YandexMusicService(MusicService):
                 track = await self._convert_yandex_track(ya_track)
                 if track:
                     tracks.append(track)
+
+            # OPTIMIZATION: Cache --in-top filtered results for reuse
+            if (options.in_top_n or options.in_top_percent) and options.years and self.cache and tracks:
+                in_top_key = f"{options.in_top_n}" if options.in_top_n else f"{options.in_top_percent}%"
+                cache_key = f"top_tracks:{artist_id}:{in_top_key}:{options.years[0]}-{options.years[1]}"
+                # Cache for 1 hour (tracks in year range don't change frequently)
+                await self.cache.set(cache_key, tracks, ttl_seconds=3600)
+                self.logger.debug(f"Cached result for {cache_key}")
 
             return tracks
 
