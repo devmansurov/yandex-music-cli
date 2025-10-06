@@ -315,7 +315,13 @@ class YandexMusicService(MusicService):
                     continue
                 else:
                     # On final attempt or non-network error, include the artist
-                    self.logger.warning(f"Error checking year content for artist {artist_id}: {e}")
+                    error_str = str(e)
+                    # Downgrade known API data issues to DEBUG
+                    if "Description.__init__()" in error_str and "uri" in error_str:
+                        self.logger.debug(f"Malformed album data for artist {artist_id} (Yandex API issue), including artist anyway")
+                    else:
+                        self.logger.warning(f"Error checking year content for artist {artist_id}: {e}")
+
                     if self.cache:
                         # Cache as True to avoid repeated failed checks for this artist
                         await self.cache.set(cache_key, True, ttl_seconds=1800)  # Cache for 30 minutes
