@@ -166,9 +166,14 @@ class ArtistDiscoveryService(DiscoveryService):
                 for i, current_artist_id in enumerate(current_level):
                     if len(discovered_artists) >= options.max_total_artists:
                         break
-                    
+
                     current_artist = discovered_artists[current_artist_id]
-                    
+
+                    # Log progress for current artist at this level
+                    self.logger.info(
+                        f"  [{i + 1}/{len(current_level)}] Checking similar artists for: {current_artist.name}"
+                    )
+
                     # Send progress update
                     if progress_callback:
                         await progress_callback({
@@ -180,7 +185,7 @@ class ArtistDiscoveryService(DiscoveryService):
                             'target_count': options.max_total_artists,
                             'level_progress': f"{i + 1}/{len(current_level)}"
                         })
-                    
+
                     # Get similar artists for current artist
                     try:
                         similar_artists = await self.music_service.get_similar_artists(
@@ -244,11 +249,15 @@ class ArtistDiscoveryService(DiscoveryService):
                         # Update discovery tree
                         discovery_tree[current_artist_id] = [c.id for c in selected_candidates]
 
-                        self.logger.debug(
-                            f"Added {len(selected_candidates)} artists from {current_artist.name} "
-                            f"(checked {candidates_checked} candidates)" if options.enable_year_filtering_for_discovery
-                            else f"Added {len(selected_candidates)} artists from {current_artist.name}"
-                        )
+                        # Log progress summary for this artist
+                        if options.years:
+                            skipped_count = candidates_checked - len(selected_candidates) if options.enable_year_filtering_for_discovery else 0
+                            self.logger.info(
+                                f"    → Added {len(selected_candidates)} artists, "
+                                f"skipped {skipped_count} (checked {candidates_checked} total)"
+                            )
+                        else:
+                            self.logger.debug(f"Added {len(selected_candidates)} artists from {current_artist.name}")
                         
                     except Exception as e:
                         self.logger.warning(
