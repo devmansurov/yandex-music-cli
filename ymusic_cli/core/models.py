@@ -106,7 +106,12 @@ class DownloadOptions:
     songs_per_artist: int = 3
     priority_countries: List[str] = field(default_factory=list)
     exclude_artists: Set[str] = field(default_factory=set)
-    
+
+    # Year-based discovery options
+    enable_year_filtering_for_discovery: bool = False  # Skip artists without year content
+    skip_artists_without_year_content: bool = True  # When year filter active
+    max_similar_artist_attempts: int = 20  # Max attempts to find similar artist with year content
+
     # File options
     skip_existing: bool = True
     max_file_size_mb: int = 100

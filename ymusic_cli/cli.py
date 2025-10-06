@@ -155,6 +155,10 @@ class MusicDiscoveryCLI:
             start_year, end_year = self._parse_years(self.args.years)
             options.years = (start_year, end_year)
 
+            # Enable year-based discovery filtering
+            options.enable_year_filtering_for_discovery = True
+            options.skip_artists_without_year_content = True
+
         if self.args.countries:
             options.countries = [c.strip().upper() for c in self.args.countries.split(',')]
 
@@ -182,6 +186,18 @@ class MusicDiscoveryCLI:
         base_artist = await self.music_service.get_artist(base_artist_id)
         if not base_artist:
             raise NotFoundError(f"Artist {base_artist_id} not found", "artist")
+
+        # Check if base artist has content in year range (if year filtering is enabled)
+        if options.enable_year_filtering_for_discovery and options.years:
+            has_content = await self.music_service.check_artist_has_content_in_years(
+                base_artist_id, options.years
+            )
+            if not has_content:
+                self.logger.info(
+                    f"✗ Skipping base artist {base_artist.name} - "
+                    f"no content in {options.years[0]}-{options.years[1]}"
+                )
+                return []  # Skip this artist entirely
 
         discovered_artists.append(base_artist)
         self.logger.info(f"✓ Base artist: {base_artist.name}")

@@ -142,12 +142,13 @@ class YandexMusicService(MusicService):
                 return []
 
             # Apply filters using track filter utility (SOLID: Separation of Concerns)
+            # Note: Yandex API already returns tracks sorted by popularity
             filtered_tracks = self.track_filter.apply_filters(
                 tracks_result,
                 **self._convert_options_to_kwargs(options)
             )
 
-            # Apply top selection
+            # Apply top selection (tracks are already sorted by Yandex by popularity)
             selected_tracks = self._select_top_tracks(filtered_tracks, options)
 
             # Convert to our Track model
@@ -507,14 +508,14 @@ class YandexMusicService(MusicService):
         """Select top N tracks or top N percentage."""
         if not options.top_n and not options.top_percent:
             return tracks
-        
+
         if options.top_percent:
             count = max(1, int(len(tracks) * options.top_percent / 100))
         else:
             count = min(options.top_n or len(tracks), len(tracks))
-        
+
         return tracks[:count]
-    
+
     def _get_best_quality(self, download_info, quality: Quality):
         """Select the best available quality."""
         if not download_info:

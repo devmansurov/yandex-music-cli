@@ -185,7 +185,7 @@ class ArtistDiscoveryService(DiscoveryService):
                             current_artist_id,
                             limit=50  # Get more to have better selection
                         )
-                        
+
                         # Filter and select candidates
                         candidates = await self._select_discovery_candidates(
                             similar_artists,
@@ -193,28 +193,57 @@ class ArtistDiscoveryService(DiscoveryService):
                             options,
                             depth
                         )
-                        
-                        # Add selected candidates
-                        selected_candidates = candidates[:options.similar_limit]
-                        
-                        for candidate in selected_candidates:
+
+                        # Add selected candidates with year filtering if enabled
+                        selected_candidates = []
+                        candidates_checked = 0
+                        max_attempts = options.max_similar_artist_attempts if options.enable_year_filtering_for_discovery else options.similar_limit
+
+                        for candidate in candidates:
                             if len(discovered_artists) >= options.max_total_artists:
                                 break
-                            
+
+                            if len(selected_candidates) >= options.similar_limit:
+                                break
+
+                            # If year filtering is enabled, check if artist has content in year range
+                            if options.enable_year_filtering_for_discovery and options.years:
+                                candidates_checked += 1
+                                if candidates_checked > max_attempts:
+                                    self.logger.debug(
+                                        f"Reached max attempts ({max_attempts}) for {current_artist.name}"
+                                    )
+                                    break
+
+                                has_content = await self.music_service.check_artist_has_content_in_years(
+                                    candidate.id, options.years
+                                )
+
+                                if not has_content:
+                                    self.logger.debug(
+                                        f"✗ Skipping {candidate.name} - no content in "
+                                        f"{options.years[0]}-{options.years[1]}, checking next similar artist"
+                                    )
+                                    continue  # Try next similar artist
+
+                            # Artist passed filters, add to selected
                             candidate.depth = depth
                             candidate.discovered_from = current_artist_id
                             discovered_artists[candidate.id] = candidate
                             visited_artists.add(candidate.id)
                             next_level.append(candidate.id)
-                            
+                            selected_candidates.append(candidate)
+
                             if candidate.country:
                                 countries_found.add(candidate.country)
-                        
+
                         # Update discovery tree
                         discovery_tree[current_artist_id] = [c.id for c in selected_candidates]
-                        
+
                         self.logger.debug(
-                            f"Added {len(selected_candidates)} artists from {current_artist.name}"
+                            f"Added {len(selected_candidates)} artists from {current_artist.name} "
+                            f"(checked {candidates_checked} candidates)" if options.enable_year_filtering_for_discovery
+                            else f"Added {len(selected_candidates)} artists from {current_artist.name}"
                         )
                         
                     except Exception as e:

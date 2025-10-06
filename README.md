@@ -94,6 +94,22 @@ ymusic-cli -a 9045812 -n 10 -y 2020-2024 -c US,GB -o ./downloads
 # Filter by year range and countries
 ```
 
+### 8. Smart Year-Based Filtering
+```bash
+# Year range (2024-2025)
+ymusic-cli -a "9045812,10393751,222668" -n 5 -s 3 -d 1 -y 2024-2025 -o ./downloads
+
+# Single year (2025 only)
+ymusic-cli -a "9045812,10393751,222668" -n 5 -s 3 -d 1 -y 2025 -o ./downloads
+
+# Year-based smart filtering behavior:
+# - Skips base artists with NO songs in specified year(s)
+# - For similar artists, checks each candidate for year content
+# - If similar artist has no matching songs, automatically tries NEXT similar artist
+# - Downloads top N tracks (already sorted by Yandex by popularity)
+# - Continues through all depth levels to find artists with matching content
+```
+
 ## Parameters
 
 ### Required
@@ -106,7 +122,10 @@ ymusic-cli -a 9045812 -n 10 -y 2020-2024 -c US,GB -o ./downloads
 - `-d, --depth N` - Recursive depth (default: 0 = no recursion)
 
 ### Filters
-- `-y, --years RANGE` - Year filter (e.g., "2020-2024")
+- `-y, --years RANGE` - Year filter (e.g., "2025" or "2024-2025"). When used with discovery, enables smart filtering:
+  - Skips base artists without year content
+  - Automatically tries next similar artists if one doesn't have year content
+  - Tracks are already sorted by Yandex by popularity (no manual sorting needed)
 - `-c, --countries LIST` - Country codes (e.g., "US,GB,CA")
 - `--exclude IDS` - Exclude artist IDs
 
