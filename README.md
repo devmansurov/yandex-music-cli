@@ -110,6 +110,18 @@ ymusic-cli -a "9045812,10393751,222668" -n 5 -s 3 -d 1 -y 2025 -o ./downloads
 # - Continues through all depth levels to find artists with matching content
 ```
 
+### 9. Create Archive After Download
+```bash
+# Download and create ZIP archive
+ymusic-cli -a "9045812" -n 10 -o ./downloads --archive
+
+# Custom archive name
+ymusic-cli -a "9045812" -n 10 -o ./downloads --archive --archive-name "xushnud_top_10"
+
+# Shuffle and archive combined
+ymusic-cli -a "9045812,10393751" -n 5 --shuffle --archive -o ./downloads
+```
+
 ## Parameters
 
 ### Required
@@ -132,7 +144,11 @@ ymusic-cli -a "9045812,10393751,222668" -n 5 -s 3 -d 1 -y 2025 -o ./downloads
 ### Download Options
 - `-q, --quality LEVEL` - Audio quality: low/medium/high (default: high)
 - `-p, --parallel N` - Parallel downloads (default: 2)
-- `--shuffle` - Shuffle all songs with numeric prefixes
+
+### File Organization
+- `--shuffle` - Shuffle all songs into one folder with numeric prefixes (001_, 002_, etc.)
+- `--archive` / `--zip` - Create a ZIP archive of all downloaded tracks after completion
+- `--archive-name NAME` - Custom archive filename (without .zip extension). Default: auto-generated from output directory and timestamp
 
 ### Utility
 - `-v, --verbose` - Enable verbose logging

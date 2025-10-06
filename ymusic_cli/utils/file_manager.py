@@ -242,17 +242,87 @@ class FileManager(FileManagerInterface):
         try:
             # Ensure destination directory exists
             destination.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # Copy file
             shutil.copy2(str(source), str(destination))
-            
+
             self.logger.debug(f"Copied file: {source} -> {destination}")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Error copying file {source} to {destination}: {e}")
             return False
-    
+
+    async def create_archive(
+        self,
+        source_dir: Path,
+        archive_name: Optional[str] = None,
+        output_dir: Optional[Path] = None
+    ) -> Path:
+        """Create ZIP archive of directory contents.
+
+        Args:
+            source_dir: Directory to archive
+            archive_name: Optional custom archive name (without .zip)
+            output_dir: Optional output directory (defaults to source_dir parent)
+
+        Returns:
+            Path to created archive file
+
+        Raises:
+            FileSystemError: If archive creation fails
+        """
+        import zipfile
+
+        try:
+            # Generate archive name if not provided
+            if not archive_name:
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                archive_name = f"ymusic_download_{timestamp}"
+
+            # Ensure .zip extension
+            if not archive_name.endswith('.zip'):
+                archive_name = f"{archive_name}.zip"
+
+            # Sanitize archive name
+            archive_name = self._sanitize_filename(archive_name)
+
+            # Determine output location
+            if output_dir is None:
+                output_dir = source_dir.parent
+
+            output_dir = Path(output_dir)
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            archive_path = output_dir / archive_name
+
+            self.logger.info(f"Creating archive: {archive_path}")
+
+            # Create ZIP archive
+            with zipfile.ZipFile(archive_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                file_count = 0
+                total_size = 0
+
+                for file_path in source_dir.rglob('*'):
+                    if file_path.is_file():
+                        # Calculate relative path for archive
+                        arcname = file_path.relative_to(source_dir)
+                        zipf.write(file_path, arcname)
+                        file_count += 1
+                        total_size += file_path.stat().st_size
+
+                self.logger.info(f"Archived {file_count} files ({total_size / (1024 * 1024):.2f} MB)")
+
+            # Get archive size
+            archive_size_mb = archive_path.stat().st_size / (1024 * 1024)
+            self.logger.info(f"✓ Archive created: {archive_path.name} ({archive_size_mb:.2f} MB)")
+
+            return archive_path
+
+        except Exception as e:
+            self.logger.error(f"Error creating archive: {e}")
+            raise FileSystemError(f"Failed to create archive: {e}")
+
     def _sanitize_filename(self, filename: str) -> str:
         """Sanitize filename for safe storage."""
         import re

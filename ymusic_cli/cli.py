@@ -398,6 +398,40 @@ class MusicDiscoveryCLI:
 
         self.logger.info(f"✓ Shuffled and renumbered {len(all_files)} tracks")
 
+    async def create_archive(self, output_dir: Path) -> None:
+        """Create ZIP archive of downloaded tracks.
+
+        Args:
+            output_dir: Directory containing downloaded tracks
+        """
+        try:
+            self.logger.info("Creating archive of downloaded tracks...")
+
+            # Generate archive name
+            archive_name = self.args.archive_name
+            if not archive_name:
+                # Auto-generate from directory name and date
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                archive_name = f"{output_dir.name}_{timestamp}"
+
+            # Create archive using file manager
+            archive_path = await self.file_manager.create_archive(
+                source_dir=output_dir,
+                archive_name=archive_name,
+                output_dir=output_dir.parent
+            )
+
+            # Update statistics
+            archive_size_mb = archive_path.stat().st_size / (1024 * 1024)
+            self.stats['archive_path'] = str(archive_path)
+            self.stats['archive_size_mb'] = archive_size_mb
+
+            self.logger.info(f"✓ Archive created: {archive_path.name} ({archive_size_mb:.2f} MB)")
+
+        except Exception as e:
+            self.logger.error(f"Failed to create archive: {e}")
+            # Don't fail the entire process if archiving fails
+
     async def run(self) -> None:
         """Main execution flow."""
         self.stats['start_time'] = datetime.now()
@@ -457,6 +491,10 @@ class MusicDiscoveryCLI:
             if self.args.shuffle and all_downloaded_tracks:
                 await self.shuffle_and_renumber_tracks(output_dir)
 
+            # Create archive if requested
+            if self.args.archive and all_downloaded_tracks:
+                await self.create_archive(output_dir)
+
             # Print final statistics
             self.stats['end_time'] = datetime.now()
             self._print_statistics()
@@ -488,6 +526,11 @@ class MusicDiscoveryCLI:
         if duration > 0 and self.stats['tracks_downloaded'] > 0:
             avg_time = duration / self.stats['tracks_downloaded']
             print(f"Avg time per track:   {avg_time:.2f} seconds")
+
+        # Archive statistics if archive was created
+        if 'archive_path' in self.stats:
+            print(f"\n📦 Archive created:   {self.stats['archive_path']}")
+            print(f"Archive size:         {self.stats['archive_size_mb']:.2f} MB")
 
         print("="*60 + "\n")
 
@@ -589,6 +632,21 @@ Examples:
         '--shuffle',
         action='store_true',
         help='Shuffle all songs into one folder with numeric prefixes (001_, 002_, etc.)'
+    )
+
+    parser.add_argument(
+        '--archive', '--zip',
+        action='store_true',
+        dest='archive',
+        help='Create a ZIP archive of all downloaded tracks after completion'
+    )
+
+    parser.add_argument(
+        '--archive-name',
+        type=str,
+        metavar='NAME',
+        dest='archive_name',
+        help='Custom archive filename (without .zip extension). Default: auto-generated from output directory and timestamp'
     )
 
     # Download options
