@@ -55,7 +55,11 @@ ymusic-cli -a 9045812 -n 10 -o ./music
 
 ### 1. Download from Single Artist
 ```bash
+# With custom output directory
 ymusic-cli -a 9045812 -n 10 -o ./downloads
+
+# Using default directory (./storage/downloads)
+ymusic-cli -a 9045812 -n 10
 ```
 
 ### 2. Download from Multiple Artists
@@ -126,7 +130,9 @@ ymusic-cli -a "9045812,10393751" -n 5 --shuffle --archive -o ./downloads
 
 ### Required
 - `-a, --artist-id ID` - Yandex Music artist ID(s) (comma-separated for multiple: "123,456,789")
-- `-o, --output-dir DIR` - Output directory
+
+### Optional
+- `-o, --output-dir DIR` - Output directory (default: `./storage/downloads`)
 
 ### Discovery Options
 - `-n, --tracks N` - Tracks per artist (default: 10)

@@ -571,9 +571,9 @@ Examples:
     parser.add_argument(
         '-o', '--output-dir',
         type=str,
-        required=True,
+        default='./storage/downloads',
         metavar='DIR',
-        help='Output directory for downloaded tracks'
+        help='Output directory for downloaded tracks (default: ./storage/downloads)'
     )
 
     # Discovery options
