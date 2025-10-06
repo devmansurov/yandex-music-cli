@@ -58,25 +58,37 @@ ymusic-cli -a 9045812 -n 10 -o ./music
 ymusic-cli -a 9045812 -n 10 -o ./downloads
 ```
 
-### 2. Discover Similar Artists
+### 2. Download from Multiple Artists
+```bash
+ymusic-cli -a "9045812,41114,328849" -n 10 -o ./downloads
+# Downloads from 3 different artists (automatically deduplicates)
+```
+
+### 3. Discover Similar Artists
 ```bash
 ymusic-cli -a 9045812 -n 5 -s 15 -o ./downloads
 # Downloads from base artist + 15 similar artists
 ```
 
-### 3. Recursive Discovery
+### 4. Multiple Artists with Similar Discovery
+```bash
+ymusic-cli -a "9045812,41114" -n 5 -s 10 -o ./downloads
+# Discovers similar artists from 2 base artists (automatically deduplicates)
+```
+
+### 5. Recursive Discovery
 ```bash
 ymusic-cli -a 9045812 -n 5 -s 10 -d 1 -o ./downloads
 # Discovers similar artists recursively (depth 1)
 ```
 
-### 4. Shuffle Mode
+### 6. Shuffle Mode
 ```bash
 ymusic-cli -a 9045812 -n 10 -s 20 --shuffle -o ./playlist
 # All songs in one folder with numeric prefixes (001_, 002_, etc.)
 ```
 
-### 5. With Filters
+### 7. With Filters
 ```bash
 ymusic-cli -a 9045812 -n 10 -y 2020-2024 -c US,GB -o ./downloads
 # Filter by year range and countries
@@ -85,7 +97,7 @@ ymusic-cli -a 9045812 -n 10 -y 2020-2024 -c US,GB -o ./downloads
 ## Parameters
 
 ### Required
-- `-a, --artist-id ID` - Yandex Music artist ID
+- `-a, --artist-id ID` - Yandex Music artist ID(s) (comma-separated for multiple: "123,456,789")
 - `-o, --output-dir DIR` - Output directory
 
 ### Discovery Options

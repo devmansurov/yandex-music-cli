@@ -398,11 +398,27 @@ class MusicDiscoveryCLI:
             output_dir.mkdir(parents=True, exist_ok=True)
             self.logger.info(f"Output directory: {output_dir}")
 
-            # Discover artists
-            artists = await self.discover_artists(self.args.artist_id, options)
-            self.stats['artists_processed'] = len(artists)
+            # Parse artist IDs (support comma-separated values)
+            artist_ids = [aid.strip() for aid in self.args.artist_id.split(',') if aid.strip()]
+            self.logger.info(f"Processing {len(artist_ids)} base artist(s): {', '.join(artist_ids)}")
 
-            self.logger.info(f"\nProcessing {len(artists)} artists...")
+            # Discover artists from all base artist IDs
+            all_artists = []
+            for artist_id in artist_ids:
+                self.logger.info(f"\nDiscovering from base artist ID: {artist_id}")
+                discovered = await self.discover_artists(artist_id, options)
+                all_artists.extend(discovered)
+
+            # Remove duplicates while preserving order
+            seen = set()
+            artists = []
+            for artist in all_artists:
+                if artist.id not in seen:
+                    seen.add(artist.id)
+                    artists.append(artist)
+
+            self.stats['artists_processed'] = len(artists)
+            self.logger.info(f"\nProcessing {len(artists)} unique artists (from {len(artist_ids)} base artist(s))...")
 
             # Download tracks from all artists
             all_downloaded_tracks = []
@@ -490,7 +506,7 @@ Examples:
         type=str,
         required=True,
         metavar='ID',
-        help='Base artist ID from Yandex Music'
+        help='Base artist ID(s) from Yandex Music (comma-separated for multiple: "123,456,789")'
     )
 
     parser.add_argument(
