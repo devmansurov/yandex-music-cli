@@ -1,0 +1,20 @@
+# Yandex Music CLI - Minimal Dependencies
+
+# Yandex Music API
+yandex-music>=2.1.1
+
+# Async HTTP & File operations
+aiohttp==3.9.1
+aiofiles==23.2.1
+
+# Audio metadata
+mutagen==1.47.0
+
+# Progress bars
+tqdm==4.66.1
+
+# Configuration
+python-dotenv==1.0.0
+
+# Date/time utilities
+python-dateutil==2.8.2
