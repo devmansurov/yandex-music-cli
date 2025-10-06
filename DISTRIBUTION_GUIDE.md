@@ -67,14 +67,14 @@ ymusic-cli/
 
 3. **Push to GitHub:**
    ```bash
-   git remote add origin https://github.com/YOUR_USERNAME/ymusic-cli.git
+   git remote add origin https://github.com/devmansurov/yandex-downloader-cli.git
    git branch -M main
    git push -u origin main
    ```
 
 4. **Users can install:**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/ymusic-cli.git
+   git clone https://github.com/devmansurov/yandex-downloader-cli.git
    cd ymusic-cli
    bash scripts/install.sh
    ```
@@ -190,7 +190,7 @@ python -m ymusic_cli -a 9045812 -n 1 -o ./test -v
 ## Quick Install (Linux/macOS)
 \`\`\`bash
 # Download and install
-git clone https://github.com/YOUR_USERNAME/ymusic-cli.git
+git clone https://github.com/devmansurov/yandex-downloader-cli.git
 cd ymusic-cli
 bash scripts/install.sh
 
@@ -240,7 +240,7 @@ For full documentation, see README.md
 
 If distributing via GitHub, users can report issues at:
 ```
-https://github.com/YOUR_USERNAME/ymusic-cli/issues
+https://github.com/devmansurov/yandex-downloader-cli/issues
 ```
 
 ### Updates
@@ -308,7 +308,7 @@ First stable release!
 
 ### Installation
 \`\`\`bash
-git clone https://github.com/YOUR_USERNAME/ymusic-cli.git
+git clone https://github.com/devmansurov/yandex-downloader-cli.git
 cd ymusic-cli
 bash scripts/install.sh
 \`\`\`

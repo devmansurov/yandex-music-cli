@@ -30,7 +30,7 @@ sudo apt update
 sudo apt install python3 python3-pip python3-venv git -y
 
 # 2. Clone the repository
-git clone https://github.com/devmansurov/ymusic-cli.git
+git clone https://github.com/devmansurov/yandex-downloader-cli.git
 cd ymusic-cli
 
 # 3. Create virtual environment (recommended)
@@ -78,7 +78,7 @@ sudo pacman -S python python-pip git
 brew install python git
 
 # 3. Clone the repository
-git clone https://github.com/devmansurov/ymusic-cli.git
+git clone https://github.com/devmansurov/yandex-downloader-cli.git
 cd ymusic-cli
 
 # 4. Create virtual environment
@@ -107,7 +107,7 @@ python -m ymusic_cli --help
 # 2. Install Git from https://git-scm.com/download/win
 
 # 3. Open PowerShell and clone repository
-git clone https://github.com/devmansurov/ymusic-cli.git
+git clone https://github.com/devmansurov/yandex-downloader-cli.git
 cd ymusic-cli
 
 # 4. Create virtual environment
@@ -181,7 +181,7 @@ docker run -it --rm \
 ### Option 1: Direct Usage (No Installation)
 
 ```bash
-git clone https://github.com/devmansurov/ymusic-cli.git
+git clone https://github.com/devmansurov/yandex-downloader-cli.git
 cd ymusic-cli
 pip install -r requirements.txt
 cp .env.example .env
@@ -192,7 +192,7 @@ python -m ymusic_cli -a 123 -o ./music
 ### Option 2: Package Installation
 
 ```bash
-git clone https://github.com/devmansurov/ymusic-cli.git
+git clone https://github.com/devmansurov/yandex-downloader-cli.git
 cd ymusic-cli
 pip install .
 cp .env.example ~/.env
@@ -203,7 +203,7 @@ ymusic-cli -a 123 -o ./music
 ### Option 3: Development Installation
 
 ```bash
-git clone https://github.com/devmansurov/ymusic-cli.git
+git clone https://github.com/devmansurov/yandex-downloader-cli.git
 cd ymusic-cli
 pip install -e .  # Editable install
 cp .env.example .env
@@ -382,7 +382,7 @@ ymusic-cli -a 123 -o ./music -v
 
 ## Support
 
-- **Issues:** https://github.com/devmansurov/ymusic-cli/issues
+- **Issues:** https://github.com/devmansurov/yandex-downloader-cli/issues
 - **Documentation:** See `docs/` folder
 
 ---
