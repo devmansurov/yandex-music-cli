@@ -88,7 +88,7 @@ class TrackFilter:
                 if track_year and start_year <= track_year <= end_year:
                     filtered.append(track)
 
-            logger.info(f"Year filter ({years}): {len(filtered)}/{len(tracks)} tracks")
+            logger.debug(f"Year filter ({years}): {len(filtered)}/{len(tracks)} tracks")
             return filtered
 
         except Exception as e:

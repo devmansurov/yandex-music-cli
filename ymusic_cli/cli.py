@@ -323,10 +323,17 @@ class MusicDiscoveryCLI:
             )
 
             if not tracks:
-                self.logger.warning(f"No tracks found for artist: {artist.name}")
+                # More informative message based on filters
+                if (options.in_top_n or options.in_top_percent) and options.years:
+                    in_top_str = f"{options.in_top_n}" if options.in_top_n else f"{options.in_top_percent}%"
+                    self.logger.info(
+                        f"  ✗ {artist.name}: No tracks in top {in_top_str} matching {options.years[0]}-{options.years[1]}"
+                    )
+                else:
+                    self.logger.info(f"  ✗ {artist.name}: No tracks found")
                 return []
 
-            self.logger.info(f"Downloading {len(tracks)} tracks from {artist.name}...")
+            self.logger.info(f"  → Downloading {len(tracks)} tracks from {artist.name}...")
 
             # Create artist folder if not shuffling
             if not self.args.shuffle:
@@ -378,7 +385,7 @@ class MusicDiscoveryCLI:
                     continue
 
             self.logger.info(
-                f"✓ Downloaded {len(downloaded_tracks)}/{len(tracks)} tracks from {artist.name}"
+                f"  ✓ Downloaded {len(downloaded_tracks)}/{len(tracks)} tracks from {artist.name}"
             )
 
             return downloaded_tracks
@@ -534,7 +541,19 @@ class MusicDiscoveryCLI:
                 artist_iter = artists
 
             for artist in artist_iter:
+                # Log artist processing status BEFORE downloading
+                if (options.in_top_n or options.in_top_percent) and options.years:
+                    in_top_str = f"{options.in_top_n}" if options.in_top_n else f"{options.in_top_percent}%"
+                    self.logger.info(
+                        f"📍 Processing: {artist.name} (checking top {in_top_str} for {options.years[0]}-{options.years[1]})"
+                    )
+
                 tracks = await self.download_artist_tracks(artist, options, output_dir)
+
+                # Log result for this artist
+                if not tracks and (options.in_top_n or options.in_top_percent) and options.years:
+                    self.logger.info(f"  ✗ Skipped {artist.name} - no matching tracks in specified range")
+
                 all_downloaded_tracks.extend(tracks)
 
                 # Respect max concurrent downloads setting

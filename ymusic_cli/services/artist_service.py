@@ -118,7 +118,7 @@ class ArtistService:
             List of similar artist objects (up to 50)
         """
         try:
-            logger.info(f"Getting all similar artists for artist {artist_id}")
+            logger.debug(f"Getting all similar artists for artist {artist_id}")
 
             # Use direct API endpoint to get all 50 similar artists
             url = f'{self.client.base_url}/artists/{artist_id}/similar'
@@ -139,7 +139,7 @@ class ArtistService:
 
             # Convert dict objects to Artist objects
             similar_artists = []
-            logger.info(f"Processing {len(similar_data)} similar artists from API")
+            logger.debug(f"Processing {len(similar_data)} similar artists from API")
 
             conversion_errors = 0
             for i, artist_dict in enumerate(similar_data):
@@ -157,7 +157,7 @@ class ArtistService:
                     conversion_errors += 1
                     continue
 
-            logger.info(f"Converted {len(similar_artists)}/{len(similar_data)} similar artists (errors: {conversion_errors})")
+            logger.debug(f"Converted {len(similar_artists)}/{len(similar_data)} similar artists (errors: {conversion_errors})")
 
             if len(similar_artists) == 0:
                 logger.warning(f"All conversions failed, using fallback for artist {artist_id}")

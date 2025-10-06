@@ -143,7 +143,7 @@ class YandexMusicService(MusicService):
 
                 cached_tracks = await self.cache.get(cache_key)
                 if cached_tracks:
-                    self.logger.info(f"✓ Cache hit for {cache_key} (saved API calls)")
+                    self.logger.debug(f"✓ Cache hit for {cache_key} (saved API calls)")
                     return cached_tracks
 
             # OPTIMIZATION: Calculate max tracks needed for early pagination exit
@@ -165,7 +165,7 @@ class YandexMusicService(MusicService):
                     # Percentage mode: calculate position from percentage
                     import math
                     top_count = math.ceil(len(all_tracks) * options.in_top_percent / 100)
-                    self.logger.info(
+                    self.logger.debug(
                         f"--in-top {options.in_top_percent}%: "
                         f"Checking top {top_count} tracks out of {len(all_tracks)} total "
                         f"({options.in_top_percent}% of {len(all_tracks)})"
@@ -173,7 +173,7 @@ class YandexMusicService(MusicService):
                 else:
                     # Numeric mode: use exact position
                     top_count = min(options.in_top_n, len(all_tracks))
-                    self.logger.info(
+                    self.logger.debug(
                         f"--in-top {options.in_top_n}: "
                         f"Checking top {top_count} tracks out of {len(all_tracks)} total"
                     )
@@ -187,7 +187,7 @@ class YandexMusicService(MusicService):
                     **self._convert_options_to_kwargs(options)
                 )
 
-                self.logger.info(
+                self.logger.debug(
                     f"Year filter ({options.years[0]}-{options.years[1]}): "
                     f"{len(filtered_tracks)} tracks from top {top_count} match year criteria"
                 )
@@ -356,28 +356,28 @@ class YandexMusicService(MusicService):
 
     async def get_similar_artists(self, artist_id: str, limit: int = 50) -> List[Artist]:
         """Get similar artists for a given artist."""
-        self.logger.info(f"get_similar_artists called: artist_id={artist_id}, limit={limit}")
-        
+        self.logger.debug(f"get_similar_artists called: artist_id={artist_id}, limit={limit}")
+
         if not self.client:
             self.logger.error("Downloader not initialized")
             raise ServiceError("Downloader not initialized", "yandex_music")
-        
+
         cache_key = f"similar_artists:{artist_id}:{limit}"
         if self.cache:
-            self.logger.info(f"Checking cache for key: {cache_key}")
+            self.logger.debug(f"Checking cache for key: {cache_key}")
             cached = await self.cache.get(cache_key)
             if cached:
-                self.logger.info(f"Found cached result: {len(cached)} artists")
+                self.logger.debug(f"Found cached result: {len(cached)} artists")
                 return cached
             else:
-                self.logger.info("No cached result found")
-        
+                self.logger.debug("No cached result found")
+
         try:
-            self.logger.info(f"Making API call to get_all_similar_artists for artist {artist_id}")
+            self.logger.debug(f"Making API call to get_all_similar_artists for artist {artist_id}")
             # Use enhanced similar artists method from the downloader
             similar_artists_raw = await self.artist_service.get_all_similar_artists(artist_id)
-            
-            self.logger.info(f"API call returned {len(similar_artists_raw) if similar_artists_raw else 0} raw similar artists")
+
+            self.logger.debug(f"API call returned {len(similar_artists_raw) if similar_artists_raw else 0} raw similar artists")
             
             if not similar_artists_raw:
                 self.logger.warning(f"No raw similar artists returned for artist {artist_id}")
@@ -402,10 +402,10 @@ class YandexMusicService(MusicService):
                 )
                 artists.append(artist)
             
-            self.logger.info(f"Successfully processed {len(artists)} similar artists")
-            
+            self.logger.debug(f"Successfully processed {len(artists)} similar artists")
+
             if self.cache:
-                self.logger.info(f"Caching result for key: {cache_key}")
+                self.logger.debug(f"Caching result for key: {cache_key}")
                 await self.cache.set(cache_key, artists, ttl_seconds=86400)  # 24 hours
             
             return artists

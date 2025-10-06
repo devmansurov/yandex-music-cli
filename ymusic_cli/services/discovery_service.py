@@ -160,7 +160,9 @@ class ArtistDiscoveryService(DiscoveryService):
                 )
                 
                 next_level = []
-                
+                level_added = 0
+                level_skipped = 0
+
                 for i, current_artist_id in enumerate(current_level):
                     if len(discovered_artists) >= options.max_total_artists:
                         break
@@ -224,6 +226,7 @@ class ArtistDiscoveryService(DiscoveryService):
                                         f"✗ Skipping {candidate.name} - no content in "
                                         f"{options.years[0]}-{options.years[1]}, checking next similar artist"
                                     )
+                                    level_skipped += 1
                                     continue  # Try next similar artist
 
                             # Artist passed filters, add to selected
@@ -233,6 +236,7 @@ class ArtistDiscoveryService(DiscoveryService):
                             visited_artists.add(candidate.id)
                             next_level.append(candidate.id)
                             selected_candidates.append(candidate)
+                            level_added += 1
 
                             if candidate.country:
                                 countries_found.add(candidate.country)
@@ -253,11 +257,19 @@ class ArtistDiscoveryService(DiscoveryService):
                         continue
                 
                 current_level = next_level
-                
-                self.logger.info(
-                    f"Level {depth} complete: {len(discovered_artists)} total artists, "
-                    f"{len(next_level)} for next level"
-                )
+
+                # Enhanced summary with skip count
+                if options.years:
+                    self.logger.info(
+                        f"Level {depth} complete: Added {level_added} artists, "
+                        f"Skipped {level_skipped} (no year content), "
+                        f"Total: {len(discovered_artists)} artists"
+                    )
+                else:
+                    self.logger.info(
+                        f"Level {depth} complete: {len(discovered_artists)} total artists, "
+                        f"{len(next_level)} for next level"
+                    )
             
             discovery_time = time.time() - start_time
             max_depth_reached = max(a.depth for a in discovered_artists.values())
