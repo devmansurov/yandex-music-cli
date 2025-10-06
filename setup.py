@@ -22,7 +22,7 @@ setup(
     description="CLI tool for automated artist discovery and track downloading from Yandex Music",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/devmansurov/yandex-downloader-cli",
+    url="https://github.com/devmansurov/yandex-music-cli",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",
@@ -46,7 +46,7 @@ setup(
     include_package_data=True,
     keywords="yandex music download cli artist discovery",
     project_urls={
-        "Bug Reports": "https://github.com/devmansurov/yandex-downloader-cli/issues",
-        "Source": "https://github.com/devmansurov/yandex-downloader-cli",
+        "Bug Reports": "https://github.com/devmansurov/yandex-music-cli/issues",
+        "Source": "https://github.com/devmansurov/yandex-music-cli",
     },
 )

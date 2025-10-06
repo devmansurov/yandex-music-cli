@@ -74,13 +74,13 @@ git add .
 git commit -m "Initial commit: Yandex Music CLI v1.0.0"
 
 # Create repo on GitHub, then:
-git remote add origin https://github.com/devmansurov/yandex-downloader-cli.git
+git remote add origin https://github.com/devmansurov/yandex-music-cli.git
 git push -u origin main
 ```
 
 **Users install:**
 ```bash
-git clone https://github.com/devmansurov/yandex-downloader-cli.git
+git clone https://github.com/devmansurov/yandex-music-cli.git
 cd ymusic-cli
 bash scripts/install.sh
 ```

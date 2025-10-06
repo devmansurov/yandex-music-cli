@@ -19,8 +19,8 @@ A powerful command-line tool for automated artist discovery and track downloadin
 
 ```bash
 # Clone the repository
-git clone https://github.com/devmansurov/yandex-downloader-cli.git
-cd yandex-downloader-cli
+git clone https://github.com/devmansurov/yandex-music-cli.git
+cd yandex-music-cli
 
 # Install dependencies
 pip install -r requirements.txt
