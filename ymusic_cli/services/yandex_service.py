@@ -13,14 +13,16 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 try:
     from yandex_music import Client
-    from yandex_advanced_downloader import YandexMusicDownloader, FilterManager
 except ImportError as e:
     logging.error(f"Failed to import Yandex Music modules: {e}")
     raise
 
-from core.interfaces import MusicService, CacheService
-from core.models import Artist, Track, Album, DownloadOptions, Quality
-from core.exceptions import ServiceError, NotFoundError, NetworkError
+from ymusic_cli.core.interfaces import MusicService, CacheService
+from ymusic_cli.core.models import Artist, Track, Album, DownloadOptions, Quality
+from ymusic_cli.core.exceptions import ServiceError, NotFoundError, NetworkError
+from ymusic_cli.services.artist_service import ArtistService
+from ymusic_cli.services.chart_service import ChartService
+from ymusic_cli.utils.track_filters import TrackFilter
 
 
 class YandexMusicService(MusicService):
@@ -30,21 +32,22 @@ class YandexMusicService(MusicService):
         self.token = token
         self.cache = cache_service
         self.client: Optional[Client] = None
-        self.downloader: Optional[YandexMusicDownloader] = None
-        self.filter_manager = FilterManager()
+        self.artist_service: Optional[ArtistService] = None
+        self.chart_service: Optional[ChartService] = None
+        self.track_filter = TrackFilter()
         self.logger = logging.getLogger(__name__)
-        
+
     async def initialize(self) -> None:
-        """Initialize the Yandex Music client."""
+        """Initialize the Yandex Music client and services."""
         try:
             self.logger.info("Initializing Yandex Music client...")
             self.client = Client(self.token)
             await asyncio.to_thread(self.client.init)
-            
-            # Initialize downloader for advanced features
-            self.downloader = YandexMusicDownloader(self.token, "/tmp")
-            await self.downloader.initialize()
-            
+
+            # Initialize simplified services (following SOLID principles)
+            self.artist_service = ArtistService(self.client)
+            self.chart_service = ChartService(self.client)
+
             self.logger.info("✅ Yandex Music service initialized successfully")
         except Exception as e:
             self.logger.error(f"Failed to initialize Yandex Music service: {e}")
@@ -128,41 +131,41 @@ class YandexMusicService(MusicService):
     
     async def get_artist_tracks(self, artist_id: str, options: DownloadOptions) -> List[Track]:
         """Get tracks for an artist with filtering."""
-        if not self.downloader:
-            raise ServiceError("Downloader not initialized", "yandex_music")
-        
+        if not self.artist_service:
+            raise ServiceError("Artist service not initialized", "yandex_music")
+
         try:
-            # Get all tracks using the advanced downloader
-            tracks_result = await self.downloader.artist_downloader.get_artist_tracks(artist_id)
-            
+            # Get all tracks using artist service (SOLID: Single Responsibility)
+            tracks_result = await self.artist_service.get_artist_tracks(artist_id)
+
             if not tracks_result:
                 return []
-            
-            # Apply filters using existing filter manager
-            filtered_tracks = self.filter_manager.apply_filters(
-                tracks_result, 
+
+            # Apply filters using track filter utility (SOLID: Separation of Concerns)
+            filtered_tracks = self.track_filter.apply_filters(
+                tracks_result,
                 **self._convert_options_to_kwargs(options)
             )
-            
+
             # Apply top selection
             selected_tracks = self._select_top_tracks(filtered_tracks, options)
-            
+
             # Convert to our Track model
             tracks = []
             for ya_track in selected_tracks:
                 track = await self._convert_yandex_track(ya_track)
                 if track:
                     tracks.append(track)
-            
+
             return tracks
-            
+
         except Exception as e:
             self.logger.error(f"Error getting tracks for artist {artist_id}: {e}")
             raise ServiceError(f"Failed to get tracks: {e}", "yandex_music")
 
     async def check_artist_has_content_in_years(self, artist_id: str, years: tuple[int, int]) -> bool:
         """Lightweight check if artist has content in specified year range without fetching all tracks."""
-        if not self.downloader:
+        if not self.client:
             return True  # Default to True if we can't check
 
         cache_key = f"year_check:{artist_id}:{years[0]}-{years[1]}"
@@ -178,7 +181,7 @@ class YandexMusicService(MusicService):
         for attempt in range(max_retries):
             try:
                 # Try to get artist's albums/singles for year filtering (much faster than all tracks)
-                client = self.downloader.client
+                client = self.client
 
                 # Add timeout and retry with exponential backoff
                 try:
@@ -285,7 +288,7 @@ class YandexMusicService(MusicService):
         """Get similar artists for a given artist."""
         self.logger.info(f"get_similar_artists called: artist_id={artist_id}, limit={limit}")
         
-        if not self.downloader:
+        if not self.client:
             self.logger.error("Downloader not initialized")
             raise ServiceError("Downloader not initialized", "yandex_music")
         
@@ -302,7 +305,7 @@ class YandexMusicService(MusicService):
         try:
             self.logger.info(f"Making API call to get_all_similar_artists for artist {artist_id}")
             # Use enhanced similar artists method from the downloader
-            similar_artists_raw = await self.downloader.artist_downloader.get_all_similar_artists(artist_id)
+            similar_artists_raw = await self.artist_service.get_all_similar_artists(artist_id)
             
             self.logger.info(f"API call returned {len(similar_artists_raw) if similar_artists_raw else 0} raw similar artists")
             
@@ -372,18 +375,18 @@ class YandexMusicService(MusicService):
     
     async def get_chart_tracks(self, chart_type: str, options: DownloadOptions) -> List[Track]:
         """Get tracks from a chart."""
-        if not self.downloader:
+        if not self.client:
             raise ServiceError("Downloader not initialized", "yandex_music")
         
         try:
             # Use chart downloader from the advanced downloader
-            tracks_result = await self.downloader.chart_downloader.get_chart_tracks(chart_type)
+            tracks_result = await self.chart_service.get_chart_tracks(chart_type)
             
             if not tracks_result:
                 return []
             
             # Apply filters
-            filtered_tracks = self.filter_manager.apply_filters(
+            filtered_tracks = self.track_filter.apply_filters(
                 tracks_result,
                 **self._convert_options_to_kwargs(options)
             )
@@ -560,11 +563,11 @@ class YandexMusicService(MusicService):
     
     async def _get_artist_country(self, artist_id: str) -> Optional[str]:
         """Get artist country using the downloader."""
-        if not self.downloader:
+        if not self.client:
             return None
 
         try:
-            return await self.downloader.artist_downloader.get_artist_country(artist_id)
+            return await self.artist_service.get_artist_country(artist_id)
         except:
             return None
 

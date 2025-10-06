@@ -8,18 +8,47 @@ This document provides comprehensive guidelines for developing and maintaining t
 
 ```
 yandex-music-cli/
-├── ymusic_cli/              # Main package
-│   ├── cli.py              # CLI entry point
-│   ├── config/             # Configuration management
-│   ├── core/               # Core models and interfaces
-│   ├── services/           # Business logic services
-│   └── utils/              # Utility functions
-├── docs/                   # Documentation
-├── scripts/                # Installation scripts
-├── requirements.txt        # Dependencies
-├── setup.py               # Package installer
-└── .env.example           # Configuration template
+├── ymusic_cli/                    # Main package
+│   ├── cli.py                    # CLI entry point
+│   ├── config/                   # Configuration management
+│   │   └── settings.py          # Settings and environment variables
+│   ├── core/                     # Core models and interfaces
+│   │   ├── models.py            # Data models (Artist, Track, DownloadOptions)
+│   │   ├── interfaces.py        # Abstract interfaces
+│   │   └── exceptions.py        # Custom exceptions
+│   ├── services/                 # Business logic services (SOLID compliant)
+│   │   ├── yandex_service.py    # Main Yandex Music service
+│   │   ├── artist_service.py    # Artist API operations
+│   │   ├── chart_service.py     # Chart API operations
+│   │   ├── download_service.py  # Download orchestration
+│   │   ├── discovery_service.py # Artist discovery logic
+│   │   └── cache_service.py     # Caching service
+│   └── utils/                    # Utility functions
+│       ├── track_filters.py     # Track filtering utilities
+│       ├── file_manager.py      # File operations
+│       ├── progress_tracker.py  # Progress tracking
+│       └── language_detector.py # Language detection
+├── docs/                         # Documentation
+├── scripts/                      # Installation scripts
+├── requirements.txt              # Dependencies (7 packages)
+├── setup.py                     # Package installer
+└── .env.example                 # Configuration template
 ```
+
+## 🎨 Architecture Principles
+
+This project follows **Clean Architecture** with strict adherence to:
+- **SOLID** principles for maintainability
+- **DRY** (Don't Repeat Yourself) for code reusability
+- **KISS** (Keep It Simple, Stupid) for clarity
+- **YAGNI** (You Aren't Gonna Need It) for minimal complexity
+
+### Service Layer Design
+Each service has a **single, focused responsibility**:
+- `ArtistService` - Artist API operations only
+- `ChartService` - Chart API operations only
+- `TrackFilter` - Track filtering logic only
+- `YandexMusicService` - Orchestration and high-level operations
 
 ## 🎯 Code Standards
 

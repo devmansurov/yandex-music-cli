@@ -4,7 +4,7 @@ import re
 from typing import List, Optional, Tuple, Union
 from urllib.parse import urlparse, parse_qs
 
-from core.exceptions import ValidationError
+from ymusic_cli.core.exceptions import ValidationError
 
 
 class CommandValidator:

@@ -8,10 +8,10 @@ from datetime import datetime, timedelta
 from typing import Any, Optional, Dict
 import hashlib
 
-from core.interfaces import CacheService
-from core.models import CacheEntry
-from core.exceptions import CacheError
-from config.settings import get_settings
+from ymusic_cli.core.interfaces import CacheService
+from ymusic_cli.core.models import CacheEntry
+from ymusic_cli.core.exceptions import CacheError
+from ymusic_cli.config.settings import get_settings
 
 
 class InMemoryCacheService(CacheService):

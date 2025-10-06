@@ -119,10 +119,8 @@ class Settings:
         self.files.temp_dir.mkdir(parents=True, exist_ok=True)
         self.files.storage_dir.mkdir(parents=True, exist_ok=True)
         (self.files.storage_dir / "downloads").mkdir(parents=True, exist_ok=True)
-        
-        # Validate required settings
-        if not self.telegram.bot_token:
-            raise ValueError("BOT_TOKEN is required")
+
+        # Validate required settings (BOT_TOKEN not required for CLI)
         if not self.yandex.token:
             raise ValueError("YANDEX_TOKEN is required")
 

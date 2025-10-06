@@ -6,9 +6,9 @@ from datetime import datetime
 from typing import Dict, Optional, Callable
 from dataclasses import dataclass
 
-from core.interfaces import ProgressTracker as ProgressTrackerInterface
-from core.models import DownloadTask, ProgressUpdate, ProgressType
-from config.settings import get_settings
+from ymusic_cli.core.interfaces import ProgressTracker as ProgressTrackerInterface
+from ymusic_cli.core.models import DownloadTask, ProgressUpdate, ProgressType
+from ymusic_cli.config.settings import get_settings
 
 
 @dataclass

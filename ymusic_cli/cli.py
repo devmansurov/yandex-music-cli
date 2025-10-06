@@ -26,15 +26,15 @@ except ImportError:
     print("Progress bars will be disabled.")
     tqdm = None
 
-from config.settings import get_settings
-from services.yandex_service import YandexMusicService
-from services.download_service import DownloadOrchestrator
-from services.discovery_service import ArtistDiscoveryService
-from services.cache_service import create_cache_service
-from core.models import DownloadOptions, Quality, Artist, Track
-from core.exceptions import ServiceError, NotFoundError
-from utils.file_manager import FileManager
-from utils.progress_tracker import ProgressTracker
+from ymusic_cli.config.settings import get_settings
+from ymusic_cli.services.yandex_service import YandexMusicService
+from ymusic_cli.services.download_service import DownloadOrchestrator
+from ymusic_cli.services.discovery_service import ArtistDiscoveryService
+from ymusic_cli.services.cache_service import create_cache_service
+from ymusic_cli.core.models import DownloadOptions, Quality, Artist, Track
+from ymusic_cli.core.exceptions import ServiceError, NotFoundError
+from ymusic_cli.utils.file_manager import FileManager
+from ymusic_cli.utils.progress_tracker import ProgressTracker
 
 
 class MusicDiscoveryCLI:

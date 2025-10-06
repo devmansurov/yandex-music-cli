@@ -11,10 +11,10 @@ import aiofiles
 import aiofiles.os
 from datetime import datetime, timedelta
 
-from core.interfaces import FileManager as FileManagerInterface
-from core.models import FileInfo
-from core.exceptions import FileSystemError
-from config.settings import get_settings
+from ymusic_cli.core.interfaces import FileManager as FileManagerInterface
+from ymusic_cli.core.models import FileInfo
+from ymusic_cli.core.exceptions import FileSystemError
+from ymusic_cli.config.settings import get_settings
 
 
 class FileManager(FileManagerInterface):

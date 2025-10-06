@@ -10,10 +10,10 @@ import aiofiles
 from datetime import datetime
 import time
 
-from core.interfaces import DownloadService, MusicService, FileManager, ProgressTracker, CacheService
-from core.models import Track, DownloadTask, ProgressUpdate, ProgressType, DownloadStatus
-from core.exceptions import DownloadError, NetworkError, FileSystemError
-from config.settings import get_settings
+from ymusic_cli.core.interfaces import DownloadService, MusicService, FileManager, ProgressTracker, CacheService
+from ymusic_cli.core.models import Track, DownloadTask, ProgressUpdate, ProgressType, DownloadStatus
+from ymusic_cli.core.exceptions import DownloadError, NetworkError, FileSystemError
+from ymusic_cli.config.settings import get_settings
 
 
 class DownloadOrchestrator(DownloadService):

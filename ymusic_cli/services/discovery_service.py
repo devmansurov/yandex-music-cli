@@ -7,11 +7,11 @@ from datetime import datetime
 from typing import List, Optional, Set, Dict, Any
 from collections import defaultdict
 
-from core.interfaces import DiscoveryService, MusicService, CacheService
-from core.models import Artist, DownloadOptions, DiscoveryResult
-from core.exceptions import ServiceError, NotFoundError
-from config.settings import get_settings
-from utils.language_detector import detect_artist_language
+from ymusic_cli.core.interfaces import DiscoveryService, MusicService, CacheService
+from ymusic_cli.core.models import Artist, DownloadOptions, DiscoveryResult
+from ymusic_cli.core.exceptions import ServiceError, NotFoundError
+from ymusic_cli.config.settings import get_settings
+from ymusic_cli.utils.language_detector import detect_artist_language
 
 
 class ArtistDiscoveryService(DiscoveryService):
