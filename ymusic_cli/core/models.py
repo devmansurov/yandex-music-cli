@@ -85,7 +85,9 @@ class DownloadOptions:
     # Selection criteria
     top_n: Optional[int] = None
     top_percent: Optional[float] = None
-    
+    in_top_n: Optional[int] = None  # Only download if track is in top N most popular (requires years filter)
+    in_top_percent: Optional[float] = None  # Only download if track is in top N% most popular (requires years filter)
+
     # Filters
     years: Optional[tuple[int, int]] = None  # (start_year, end_year)
     countries: List[str] = field(default_factory=list)

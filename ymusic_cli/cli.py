@@ -163,6 +163,18 @@ class MusicDiscoveryCLI:
             options.enable_year_filtering_for_discovery = True
             options.skip_artists_without_year_content = True
 
+        # Parse --in-top filter (requires --years)
+        if self.args.in_top:
+            if not self.args.years:
+                raise ValueError("--in-top requires --years filter to be specified")
+
+            try:
+                in_top_n, in_top_percent = self._parse_in_top(self.args.in_top)
+                options.in_top_n = in_top_n
+                options.in_top_percent = in_top_percent
+            except ValueError as e:
+                raise ValueError(f"Invalid --in-top value: {e}")
+
         if self.args.countries:
             options.countries = [c.strip().upper() for c in self.args.countries.split(',')]
 
@@ -179,6 +191,44 @@ class MusicDiscoveryCLI:
         else:
             year = int(years_str)
             return year, year
+
+    def _parse_in_top(self, value: str) -> tuple[Optional[int], Optional[float]]:
+        """Parse --in-top value to either numeric or percentage.
+
+        Args:
+            value: String like "10" or "10%"
+
+        Returns:
+            Tuple of (numeric_value, percentage_value) where one is None
+
+        Raises:
+            ValueError: If value is invalid
+        """
+        if not value:
+            return None, None
+
+        value = value.strip()
+
+        # Check if percentage
+        if value.endswith('%'):
+            try:
+                percent = float(value[:-1])
+                if percent <= 0 or percent > 100:
+                    raise ValueError(f"Percentage must be between 0 and 100, got {percent}%")
+                return None, percent
+            except ValueError as e:
+                if "could not convert" in str(e):
+                    raise ValueError(f"Invalid percentage format: {value}. Use format like '10%'")
+                raise
+
+        # Otherwise numeric
+        try:
+            numeric = int(value)
+            if numeric <= 0:
+                raise ValueError(f"Numeric value must be positive, got {numeric}")
+            return numeric, None
+        except ValueError:
+            raise ValueError(f"Invalid --in-top value: {value}. Use numeric (e.g., '10') or percentage (e.g., '10%')")
 
     async def discover_artists(self, base_artist_id: str, options: DownloadOptions) -> List[Artist]:
         """Discover artists based on recursive depth."""
@@ -622,6 +672,16 @@ Examples:
         type=str,
         metavar='RANGE',
         help='Year filter, e.g. "2020" or "2020-2024"'
+    )
+
+    parser.add_argument(
+        '--in-top',
+        type=str,
+        metavar='N',
+        dest='in_top',
+        help='Only download tracks in artist\'s top N most popular songs. '
+             'Accepts numeric (e.g., "10") or percentage (e.g., "10%%"). '
+             'Requires --years filter.'
     )
 
     parser.add_argument(

@@ -114,7 +114,28 @@ ymusic-cli -a "9045812,10393751,222668" -n 5 -s 3 -d 1 -y 2025 -o ./downloads
 # - Continues through all depth levels to find artists with matching content
 ```
 
-### 9. Create Archive After Download
+### 9. Download Recent Hits from Top Popular Songs
+```bash
+# Get up to 5 songs from 2024-2025 that are in artist's top 10 most popular
+ymusic-cli -a 9045812 -n 5 -y 2024-2025 --in-top 10 -o ./downloads
+
+# Get up to 3 songs from 2024-2025 that are in artist's top 5% most popular
+# If artist has 100 tracks, this checks top 5 songs
+ymusic-cli -a 9045812 -n 3 -y 2024-2025 --in-top 5% -o ./downloads
+
+# Get recent hits from top 15% of artist's catalog with discovery
+# If artist has 110 tracks, this checks top 17 songs (110 * 0.15 = 16.5 → 17)
+ymusic-cli -a 9045812 -s 20 -n 5 -y 2024-2025 --in-top 15% -o ./downloads
+
+# How --in-top works:
+# 1. Gets artist's ALL tracks (already sorted by popularity by Yandex)
+# 2. Takes only top N or top N% most popular tracks
+# 3. Filters these tracks by year range
+# 4. Downloads up to requested number that match BOTH criteria
+# 5. Strict mode: If only 2 songs match, downloads only 2 (not 5)
+```
+
+### 10. Create Archive After Download
 ```bash
 # Download and create ZIP archive
 ymusic-cli -a "9045812" -n 10 -o ./downloads --archive
@@ -146,6 +167,10 @@ ymusic-cli -a "9045812,10393751" -n 5 --shuffle --archive -o ./downloads
   - Tracks are already sorted by Yandex by popularity (no manual sorting needed)
 - `-c, --countries LIST` - Country codes (e.g., "US,GB,CA")
 - `--exclude IDS` - Exclude artist IDs
+- `--in-top N` - Only download tracks in artist's top N most popular songs (requires `--years` filter)
+  - **Numeric format:** `--in-top 10` - Check top 10 songs by position
+  - **Percentage format:** `--in-top 10%` - Check top 10% of all songs
+  - **Strict mode:** Only downloads songs matching BOTH criteria (year + popularity)
 
 ### Download Options
 - `-q, --quality LEVEL` - Audio quality: low/medium/high (default: high)

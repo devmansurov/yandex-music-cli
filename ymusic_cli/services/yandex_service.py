@@ -136,20 +136,59 @@ class YandexMusicService(MusicService):
 
         try:
             # Get all tracks using artist service (SOLID: Single Responsibility)
-            tracks_result = await self.artist_service.get_artist_tracks(artist_id)
+            # Note: Yandex API already returns tracks sorted by popularity
+            all_tracks = await self.artist_service.get_artist_tracks(artist_id)
 
-            if not tracks_result:
+            if not all_tracks:
                 return []
 
-            # Apply filters using track filter utility (SOLID: Separation of Concerns)
-            # Note: Yandex API already returns tracks sorted by popularity
-            filtered_tracks = self.track_filter.apply_filters(
-                tracks_result,
-                **self._convert_options_to_kwargs(options)
-            )
+            # NEW LOGIC: --in-top filter (works only with year filter)
+            if (options.in_top_n or options.in_top_percent) and options.years:
+                # Calculate how many top tracks to check
+                if options.in_top_percent:
+                    # Percentage mode: calculate position from percentage
+                    import math
+                    top_count = math.ceil(len(all_tracks) * options.in_top_percent / 100)
+                    self.logger.info(
+                        f"--in-top {options.in_top_percent}%: "
+                        f"Checking top {top_count} tracks out of {len(all_tracks)} total "
+                        f"({options.in_top_percent}% of {len(all_tracks)})"
+                    )
+                else:
+                    # Numeric mode: use exact position
+                    top_count = min(options.in_top_n, len(all_tracks))
+                    self.logger.info(
+                        f"--in-top {options.in_top_n}: "
+                        f"Checking top {top_count} tracks out of {len(all_tracks)} total"
+                    )
 
-            # Apply top selection (tracks are already sorted by Yandex by popularity)
-            selected_tracks = self._select_top_tracks(filtered_tracks, options)
+                # Take only the top N most popular tracks
+                top_n_tracks = all_tracks[:top_count]
+
+                # Apply year filter to ONLY these top tracks
+                filtered_tracks = self.track_filter.apply_filters(
+                    top_n_tracks,
+                    **self._convert_options_to_kwargs(options)
+                )
+
+                self.logger.info(
+                    f"Year filter ({options.years[0]}-{options.years[1]}): "
+                    f"{len(filtered_tracks)} tracks from top {top_count} match year criteria"
+                )
+
+                # Select up to top_n from filtered results (strict mode)
+                selected_tracks = self._select_top_tracks(filtered_tracks, options)
+
+            else:
+                # EXISTING LOGIC: Normal mode (no --in-top filter)
+                # Apply filters using track filter utility (SOLID: Separation of Concerns)
+                filtered_tracks = self.track_filter.apply_filters(
+                    all_tracks,
+                    **self._convert_options_to_kwargs(options)
+                )
+
+                # Apply top selection (tracks are already sorted by Yandex by popularity)
+                selected_tracks = self._select_top_tracks(filtered_tracks, options)
 
             # Convert to our Track model
             tracks = []
