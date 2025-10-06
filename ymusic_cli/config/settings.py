@@ -100,6 +100,15 @@ class PerformanceConfig:
 
 
 @dataclass
+class FileServerConfig:
+    """HTTP file server configuration."""
+    enabled: bool = field(default_factory=lambda: os.getenv("FILE_SERVER_ENABLED", "false").lower() == "true")
+    host: str = field(default_factory=lambda: os.getenv("FILE_SERVER_HOST", "0.0.0.0"))
+    port: int = field(default_factory=lambda: int(os.getenv("FILE_SERVER_PORT", "8080")))
+    downloads_dir: Path = field(default_factory=lambda: Path(os.getenv("DOWNLOADS_DIR", "./storage/downloads")))
+
+
+@dataclass
 class Settings:
     """Complete bot settings."""
     telegram: TelegramConfig = field(default_factory=TelegramConfig)
@@ -112,6 +121,7 @@ class Settings:
     security: SecurityConfig = field(default_factory=SecurityConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     performance: PerformanceConfig = field(default_factory=PerformanceConfig)
+    file_server: FileServerConfig = field(default_factory=FileServerConfig)
 
     def __post_init__(self):
         """Validate and prepare settings."""

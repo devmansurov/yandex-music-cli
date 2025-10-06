@@ -41,6 +41,7 @@ setup(
     entry_points={
         "console_scripts": [
             "ymusic-cli=ymusic_cli.cli:main",
+            "ymusic-serve=ymusic_cli.serve:cli_entry",
         ],
     },
     include_package_data=True,

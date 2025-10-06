@@ -180,6 +180,58 @@ ymusic-cli -a 9045812 -s 10 -d 1 -o ./music
 ```
 Base → 10 similar → 10 similar from each = up to 111 unique artists.
 
+## HTTP File Server
+
+The CLI includes a built-in HTTP file server to browse and download your music collection through a web browser.
+
+### Starting the Server
+
+```bash
+# Start with defaults from .env
+ymusic-serve
+
+# Custom port
+ymusic-serve --port 3000
+
+# Serve custom directory
+ymusic-serve --dir /path/to/music
+
+# Custom host and port
+ymusic-serve --host 127.0.0.1 --port 8888
+
+# Verbose logging
+ymusic-serve -v
+```
+
+### Configuration
+
+Add to your `.env` file:
+
+```env
+# HTTP File Server (optional)
+FILE_SERVER_ENABLED=false
+FILE_SERVER_HOST=0.0.0.0
+FILE_SERVER_PORT=8080
+DOWNLOADS_DIR=./storage/downloads
+```
+
+### Features
+
+- 🎨 **Beautiful UI** - Clean, modern web interface
+- 📁 **Directory Browsing** - Navigate through folders easily
+- 🔒 **Security** - Directory traversal protection built-in
+- 🎵 **Audio Support** - Proper MIME types for music files
+- 📊 **File Information** - File sizes in human-readable format
+- 🗺️ **Breadcrumb Navigation** - Easy navigation through directories
+
+### Accessing the Server
+
+Once started, open your browser and navigate to:
+- Local access: `http://localhost:8080`
+- Network access: `http://YOUR_SERVER_IP:8080`
+
+The server will display all files and folders in your downloads directory. Click on folders to browse, click on files to download.
+
 ## Getting Artist IDs
 
 ### Method 1: Yandex Music Website

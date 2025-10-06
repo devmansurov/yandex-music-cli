@@ -45,6 +45,10 @@ class MusicDiscoveryCLI:
         self.settings = get_settings()
         self.logger = self._setup_logging()
 
+        # Use default output directory from settings if not specified
+        if self.args.output_dir is None:
+            self.args.output_dir = str(self.settings.file_server.downloads_dir)
+
         # Services (to be initialized)
         self.cache_service = None
         self.music_service = None
@@ -571,9 +575,9 @@ Examples:
     parser.add_argument(
         '-o', '--output-dir',
         type=str,
-        default='./storage/downloads',
+        default=None,
         metavar='DIR',
-        help='Output directory for downloaded tracks (default: ./storage/downloads)'
+        help='Output directory for downloaded tracks (default: from DOWNLOADS_DIR in .env)'
     )
 
     # Discovery options
