@@ -624,8 +624,8 @@ class MusicDiscoveryCLI:
 
             # Discover artists from all base artist IDs
             all_artists = []
-            for artist_id in artist_ids:
-                self.logger.info(f"\nDiscovering from base artist ID: {artist_id}")
+            for idx, artist_id in enumerate(artist_ids):
+                self.logger.info(f"\nDiscovering from base artist ID {idx + 1}/{len(artist_ids)}: {artist_id}")
                 discovered = await self.discover_artists(artist_id, options)
                 all_artists.extend(discovered)
 
