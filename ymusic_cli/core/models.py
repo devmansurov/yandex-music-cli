@@ -298,6 +298,57 @@ class QueueStats:
 
 
 @dataclass
+class ProgressCheckpoint:
+    """Progress checkpoint for resumable operations."""
+    session_name: str
+    total_artists: int
+    processed_artist_ids: Set[str] = field(default_factory=set)
+    last_artist_index: int = 0
+    last_artist_id: Optional[str] = None
+    started_at: datetime = field(default_factory=datetime.now)
+    last_updated_at: datetime = field(default_factory=datetime.now)
+    command_hash: str = ""  # Hash of artist IDs + options for compatibility check
+    is_complete: bool = False
+
+    # Statistics
+    tracks_downloaded: int = 0
+    tracks_failed: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        return {
+            'session_name': self.session_name,
+            'total_artists': self.total_artists,
+            'processed_artist_ids': list(self.processed_artist_ids),
+            'last_artist_index': self.last_artist_index,
+            'last_artist_id': self.last_artist_id,
+            'started_at': self.started_at.isoformat(),
+            'last_updated_at': self.last_updated_at.isoformat(),
+            'command_hash': self.command_hash,
+            'is_complete': self.is_complete,
+            'tracks_downloaded': self.tracks_downloaded,
+            'tracks_failed': self.tracks_failed
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ProgressCheckpoint':
+        """Create from dictionary."""
+        return cls(
+            session_name=data['session_name'],
+            total_artists=data['total_artists'],
+            processed_artist_ids=set(data.get('processed_artist_ids', [])),
+            last_artist_index=data.get('last_artist_index', 0),
+            last_artist_id=data.get('last_artist_id'),
+            started_at=datetime.fromisoformat(data['started_at']),
+            last_updated_at=datetime.fromisoformat(data['last_updated_at']),
+            command_hash=data.get('command_hash', ''),
+            is_complete=data.get('is_complete', False),
+            tracks_downloaded=data.get('tracks_downloaded', 0),
+            tracks_failed=data.get('tracks_failed', 0)
+        )
+
+
+@dataclass
 class BotStats:
     """Bot-wide statistics."""
     uptime_seconds: float = 0.0
@@ -308,7 +359,7 @@ class BotStats:
     failed_downloads: int = 0
     total_data_downloaded_mb: float = 0.0
     queue_stats: QueueStats = field(default_factory=QueueStats)
-    
+
     # Performance metrics
     memory_usage_mb: float = 0.0
     cpu_usage_percent: float = 0.0

@@ -31,6 +31,7 @@ from ymusic_cli.services.yandex_service import YandexMusicService
 from ymusic_cli.services.download_service import DownloadOrchestrator
 from ymusic_cli.services.discovery_service import ArtistDiscoveryService
 from ymusic_cli.services.cache_service import create_cache_service
+from ymusic_cli.services.progress_service import ProgressService
 from ymusic_cli.core.models import DownloadOptions, Quality, Artist, Track
 from ymusic_cli.core.exceptions import ServiceError, NotFoundError
 from ymusic_cli.utils.file_manager import FileManager
@@ -55,6 +56,7 @@ class MusicDiscoveryCLI:
         self.download_service = None
         self.discovery_service = None
         self.file_manager = None
+        self.progress_service = None
 
         # Statistics
         self.stats = {
@@ -156,6 +158,10 @@ class MusicDiscoveryCLI:
                 cache_service=self.cache_service
             )
             self.logger.debug("✓ Discovery service initialized")
+
+            # Progress service (for resumable operations)
+            self.progress_service = ProgressService(cache_service=self.cache_service)
+            self.logger.debug("✓ Progress service initialized")
 
             self.logger.info("✓ All services initialized successfully")
 
@@ -622,6 +628,45 @@ class MusicDiscoveryCLI:
             artist_ids = [aid.strip() for aid in self.args.artist_id.split(',') if aid.strip()]
             self.logger.info(f"Processing {len(artist_ids)} base artist(s): {', '.join(artist_ids)}")
 
+            # Handle progress checkpoint operations
+            checkpoint = None
+            command_hash = None
+
+            if self.args.session_name:
+                # Generate command hash for compatibility check
+                command_hash = self.progress_service.generate_command_hash(
+                    artist_ids=artist_ids,
+                    similar_limit=options.similar_limit,
+                    depth=options.depth,
+                    tracks_per_artist=options.tracks_per_artist
+                )
+
+                # Handle --reset-progress
+                if self.args.reset_progress:
+                    if await self.progress_service.reset_session(self.args.session_name):
+                        self.logger.info(f"✓ Progress reset for session: {self.args.session_name}")
+                    else:
+                        self.logger.info(f"  No existing progress found for session: {self.args.session_name}")
+
+                # Handle --resume
+                elif self.args.resume:
+                    checkpoint = await self.progress_service.load_checkpoint(self.args.session_name)
+                    if checkpoint:
+                        # Validate compatibility
+                        if not self.progress_service.validate_compatibility(checkpoint, command_hash):
+                            self.logger.error(
+                                "❌ Cannot resume: checkpoint incompatible with current parameters. "
+                                "Use --reset-progress to start fresh."
+                            )
+                            return
+
+                        self.logger.info(f"📍 Resuming from checkpoint:")
+                        self.logger.info(f"   Last position: artist #{checkpoint.last_artist_index}/{checkpoint.total_artists}")
+                        self.logger.info(f"   Already processed: {len(checkpoint.processed_artist_ids)} artists")
+                        self.logger.info(f"   Last artist ID: {checkpoint.last_artist_id}")
+                    else:
+                        self.logger.info(f"  No checkpoint found for session '{self.args.session_name}', starting fresh")
+
             # Discover artists from all base artist IDs
             all_artists = []
             for idx, artist_id in enumerate(artist_ids):
@@ -637,7 +682,27 @@ class MusicDiscoveryCLI:
                     seen.add(artist.id)
                     artists.append(artist)
 
-            self.stats['artists_processed'] = len(artists)
+            # Create or update checkpoint with total artist count
+            if self.args.session_name and not checkpoint:
+                checkpoint = await self.progress_service.create_checkpoint(
+                    session_name=self.args.session_name,
+                    total_artists=len(artists),
+                    command_hash=command_hash
+                )
+
+            # Filter out already-processed artists if resuming
+            original_count = len(artists)
+            if checkpoint:
+                artists = self.progress_service.get_remaining_artists(artists)
+                if len(artists) < original_count:
+                    self.logger.info(
+                        f"✓ Skipped {original_count - len(artists)} already-processed artists "
+                        f"({len(artists)} remaining)"
+                    )
+                    if artists:
+                        self.logger.info(f"→ Resuming from artist: {artists[0].name} ({artists[0].id})")
+
+            self.stats['artists_processed'] = original_count  # Total discovered
             self.logger.info(f"\nProcessing {len(artists)} unique artists (from {len(artist_ids)} base artist(s))...")
 
             # Download tracks from all artists
@@ -645,11 +710,18 @@ class MusicDiscoveryCLI:
 
             # Create progress bar for artists if tqdm is available
             if tqdm:
-                artist_iter = tqdm(artists, desc="Artists", unit="artist")
+                # Adjust progress bar initial value if resuming
+                initial = checkpoint.last_artist_index if checkpoint else 0
+                total = checkpoint.total_artists if checkpoint else len(artists)
+                artist_iter = tqdm(artists, desc="Artists", unit="artist", initial=initial, total=total)
             else:
                 artist_iter = artists
 
-            for artist in artist_iter:
+            artist_index_offset = checkpoint.last_artist_index if checkpoint else 0
+
+            for idx, artist in enumerate(artist_iter):
+                current_index = artist_index_offset + idx + 1
+
                 # Log artist processing status BEFORE downloading
                 if (options.in_top_n or options.in_top_percent) and options.years:
                     in_top_str = f"{options.in_top_n}" if options.in_top_n else f"{options.in_top_percent}%"
@@ -665,6 +737,16 @@ class MusicDiscoveryCLI:
 
                 all_downloaded_tracks.extend(tracks)
 
+                # Save progress checkpoint after each artist
+                if self.args.session_name:
+                    await self.progress_service.save_checkpoint(
+                        session_name=self.args.session_name,
+                        artist_id=artist.id,
+                        artist_index=current_index,
+                        total_artists=checkpoint.total_artists if checkpoint else original_count,
+                        command_hash=command_hash
+                    )
+
                 # Respect max concurrent downloads setting
                 if self.args.parallel < 5:
                     await asyncio.sleep(0.5)  # Small delay between artists
@@ -676,6 +758,11 @@ class MusicDiscoveryCLI:
             # Create archive if requested
             if self.args.archive and all_downloaded_tracks:
                 await self.create_archive(output_dir)
+
+            # Mark progress checkpoint as complete
+            if self.args.session_name:
+                await self.progress_service.mark_complete(self.args.session_name)
+                self.logger.info(f"✅ Session completed: {self.args.session_name}")
 
             # Print final statistics
             self.stats['end_time'] = datetime.now()
@@ -696,6 +783,13 @@ class MusicDiscoveryCLI:
             self.logger.warning("\n\n⚠️  Process interrupted by user")
             self._print_statistics()
 
+            # Save progress on interruption
+            if self.args.session_name and self.progress_service:
+                summary = self.progress_service.get_progress_summary()
+                if summary:
+                    self.logger.info(f"\n💾 Progress saved:\n{summary}")
+                self.logger.info(f"\n📍 Resume with: --session-name {self.args.session_name} --resume")
+
             # Log interruption
             if hasattr(self, 'command_logger') and self.settings.logging.log_to_file:
                 log_path = self.command_logger.get_log_path()
@@ -703,6 +797,13 @@ class MusicDiscoveryCLI:
 
         except Exception as e:
             self.logger.error(f"\n\n❌ Error: {e}", exc_info=self.args.verbose)
+
+            # Save progress on error
+            if self.args.session_name and self.progress_service:
+                summary = self.progress_service.get_progress_summary()
+                if summary:
+                    self.logger.info(f"\n💾 Progress saved:\n{summary}")
+                self.logger.info(f"\n📍 Resume with: --session-name {self.args.session_name} --resume")
 
             # Log error
             if hasattr(self, 'command_logger') and self.settings.logging.log_to_file:
@@ -888,6 +989,29 @@ Examples:
         help='Maximum parallel downloads (default: 2)'
     )
 
+    # Progress management
+    parser.add_argument(
+        '--session-name',
+        type=str,
+        metavar='NAME',
+        dest='session_name',
+        help='Unique session name for progress tracking (enables resume on failure/interruption)'
+    )
+
+    parser.add_argument(
+        '--resume', '--continue',
+        action='store_true',
+        dest='resume',
+        help='Resume from last checkpoint if session exists (requires --session-name)'
+    )
+
+    parser.add_argument(
+        '--reset-progress',
+        action='store_true',
+        dest='reset_progress',
+        help='Clear saved progress for this session and start fresh (requires --session-name)'
+    )
+
     # Utility options
     parser.add_argument(
         '-v', '--verbose',
@@ -932,6 +1056,13 @@ Examples:
     # Validate logical consistency
     if args.depth > 0 and args.similar == 0:
         parser.error("--depth > 0 requires --similar > 0 (recursive discovery needs similar artists)")
+
+    # Validate progress-related arguments
+    if (args.resume or args.reset_progress) and not args.session_name:
+        parser.error("--resume and --reset-progress require --session-name")
+
+    if args.resume and args.reset_progress:
+        parser.error("--resume and --reset-progress cannot be used together")
 
     # Update settings for max concurrent downloads
     settings = get_settings()

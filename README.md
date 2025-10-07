@@ -163,7 +163,50 @@ screen -r discovery  # Attach to session
 # ✓ Works with both -a and --artists-file (mutually exclusive)
 ```
 
-### 11. Create Archive After Download
+### 11. Progress Resume for Large Operations (New!)
+```bash
+# When downloading from thousands of artists (e.g., 40,918), enable progress resume
+# to avoid restarting from scratch if interrupted
+
+# Start with session name to enable resume capability
+ymusic-cli --artists-file artists.txt \
+  --session-name my_discovery \
+  -n 10 --similar 50 --depth 2 \
+  -o ./downloads
+
+# If process is interrupted/killed, resume from exact position
+ymusic-cli --artists-file artists.txt \
+  --session-name my_discovery \
+  --resume \
+  -n 10 --similar 50 --depth 2 \
+  -o ./downloads
+
+# Reset and start fresh (clears saved progress)
+ymusic-cli --artists-file artists.txt \
+  --session-name my_discovery \
+  --reset-progress \
+  -n 10 --similar 50 --depth 2 \
+  -o ./downloads
+
+# How progress resume works:
+# 1. Saves checkpoint after processing each artist
+# 2. Stores progress in Redis (if available) or JSON file
+# 3. On --resume, skips all already-processed artists (instant, no API calls)
+# 4. Validates command compatibility before resume
+# 5. Works with interruptions, errors, or manual stops
+
+# Example: Processing 40,918 artists, interrupted at #890
+# Without --resume: Restart checks artists 1-889 (~15 min wasted)
+# With --resume:    Skip directly to #890 (< 1 second)
+
+# Benefits:
+# ✓ Instant resume - skips processed artists in O(1) time
+# ✓ Zero API overhead - no re-checking completed artists
+# ✓ Crash recovery - resume from exact position after any failure
+# ✓ Session isolation - run multiple sessions with different configs
+```
+
+### 12. Create Archive After Download
 ```bash
 # Download and create ZIP archive
 ymusic-cli -a "9045812" -n 10 -o ./downloads --archive
@@ -209,6 +252,11 @@ ymusic-cli -a "9045812,10393751" -n 5 --shuffle --archive -o ./downloads
 - `--shuffle` - Shuffle all songs into one folder with numeric prefixes (001_, 002_, etc.)
 - `--archive` / `--zip` - Create a ZIP archive of all downloaded tracks after completion
 - `--archive-name NAME` - Custom archive filename (without .zip extension). Default: auto-generated from output directory and timestamp
+
+### Progress Management (New!)
+- `--session-name NAME` - Unique session name for progress tracking (enables resume on interruption/failure)
+- `--resume` / `--continue` - Resume from last checkpoint if session exists (requires `--session-name`)
+- `--reset-progress` - Clear saved progress for session and start fresh (requires `--session-name`)
 
 ### Utility
 - `-v, --verbose` - Enable verbose logging
