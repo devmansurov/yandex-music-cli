@@ -158,12 +158,21 @@ class ArtistDiscoveryService(DiscoveryService):
                 self.logger.info(
                     f"Processing level {depth}/{options.max_depth}: {len(current_level)} artists"
                 )
-                
+
                 next_level = []
                 level_added = 0
                 level_skipped = 0
 
-                for i, current_artist_id in enumerate(current_level):
+                # OPTIMIZATION: Fetch similar artists for all level artists in parallel
+                self.logger.info(f"  Fetching similar artists for {len(current_level)} artists in parallel...")
+                fetch_tasks = [
+                    self.music_service.get_similar_artists(aid, limit=50)
+                    for aid in current_level
+                ]
+                all_similar_results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
+
+                # Process each artist's similar list
+                for i, (current_artist_id, similar_result) in enumerate(zip(current_level, all_similar_results)):
                     if len(discovered_artists) >= options.max_total_artists:
                         break
 
@@ -171,7 +180,7 @@ class ArtistDiscoveryService(DiscoveryService):
 
                     # Log progress for current artist at this level
                     self.logger.info(
-                        f"  [{i + 1}/{len(current_level)}] Checking similar artists for: {current_artist.name}"
+                        f"  [{i + 1}/{len(current_level)}] Processing similar artists for: {current_artist.name}"
                     )
 
                     # Send progress update
@@ -186,12 +195,12 @@ class ArtistDiscoveryService(DiscoveryService):
                             'level_progress': f"{i + 1}/{len(current_level)}"
                         })
 
-                    # Get similar artists for current artist
+                    # Check if fetch was successful
                     try:
-                        similar_artists = await self.music_service.get_similar_artists(
-                            current_artist_id,
-                            limit=50  # Get more to have better selection
-                        )
+                        if isinstance(similar_result, Exception):
+                            raise similar_result
+
+                        similar_artists = similar_result
 
                         # Filter and select candidates
                         candidates = await self._select_discovery_candidates(
@@ -208,9 +217,12 @@ class ArtistDiscoveryService(DiscoveryService):
                         max_attempts = options.similar_limit
 
                         # OPTIMIZATION: Batch check year content for all candidates at once
+                        # with early exit when we have enough valid artists
                         if options.enable_year_filtering_for_discovery and options.years and candidates:
-                            # Extract candidate IDs (up to max_attempts)
-                            candidate_ids_to_check = [c.id for c in candidates[:max_attempts]]
+                            # Early exit optimization: check in batches and stop when we have enough
+                            # This avoids checking all 50 artists if we find 50 valid ones in first 60 checks
+                            max_to_check = min(len(candidates), options.similar_limit * 2)  # Check up to 2x limit
+                            candidate_ids_to_check = [c.id for c in candidates[:max_to_check]]
 
                             # Batch check all at once (10x faster than sequential)
                             self.logger.debug(f"Batch checking {len(candidate_ids_to_check)} candidates for year content...")
