@@ -248,13 +248,19 @@ class MusicDiscoveryCLI:
             )
             if not has_content:
                 self.logger.info(
-                    f"✗ Skipping base artist {base_artist.name} - "
-                    f"no content in {options.years[0]}-{options.years[1]}"
+                    f"✗ Base artist {base_artist.name} has no content in {options.years[0]}-{options.years[1]}"
                 )
-                return []  # Skip this artist entirely
-
-        discovered_artists.append(base_artist)
-        self.logger.info(f"✓ Base artist: {base_artist.name}")
+                self.logger.info(
+                    f"  → Continuing to discover similar artists (they may have content in this range)..."
+                )
+                # Don't add base artist to results, but continue to similar artist discovery
+            else:
+                discovered_artists.append(base_artist)
+                self.logger.info(f"✓ Base artist: {base_artist.name}")
+        else:
+            # No year filtering, always add base artist
+            discovered_artists.append(base_artist)
+            self.logger.info(f"✓ Base artist: {base_artist.name}")
 
         # If no similar artists requested (similar_limit == 0), return just base artist
         if options.similar_limit == 0:

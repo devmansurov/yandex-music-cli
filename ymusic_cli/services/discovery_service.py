@@ -204,7 +204,8 @@ class ArtistDiscoveryService(DiscoveryService):
                         # Add selected candidates with year filtering if enabled
                         selected_candidates = []
                         candidates_checked = 0
-                        max_attempts = options.max_similar_artist_attempts if options.enable_year_filtering_for_discovery else options.similar_limit
+                        # Always use user's --similar limit, even with year filtering
+                        max_attempts = options.similar_limit
 
                         for candidate in candidates:
                             if len(discovered_artists) >= options.max_total_artists:
