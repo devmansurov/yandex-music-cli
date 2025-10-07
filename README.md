@@ -206,7 +206,67 @@ ymusic-cli --artists-file artists.txt \
 # ✓ Session isolation - run multiple sessions with different configs
 ```
 
-### 12. Create Archive After Download
+### 12. Batch Processing for Limited Disk Space (New!)
+```bash
+# Problem: Need to process 40,918 artists (~1TB) but only have 183GB disk space
+# Solution: Process in batches, archive, clear, and resume
+
+# Manual batch processing
+# Step 1: Process first batch of 1,900 artists
+ymusic-cli --artists-file artists.txt \
+  --session-name production \
+  --max-artists 1900 \
+  -n 10 --similar 50 --depth 2 \
+  -o ./downloads
+
+# Step 2: Create archive and upload
+tar -czf batch1.tar.gz -C ./downloads .
+# Upload to cloud storage...
+
+# Step 3: Clear downloads
+rm -rf ./downloads/*
+
+# Step 4: Resume next batch
+ymusic-cli --artists-file artists.txt \
+  --session-name production \
+  --resume \
+  --max-artists 1900 \
+  -n 10 --similar 50 --depth 2 \
+  -o ./downloads
+
+# Automated batch processing with script
+# The batch_process.sh script automates the entire workflow
+./batch_process.sh production_40k 1900 artists_list.txt
+
+# What the script does:
+# 1. Processes batch of N artists (--max-artists 1900)
+# 2. Creates compressed archive (batch_SESSION_N_TIMESTAMP.tar.gz)
+# 3. Verifies archive integrity
+# 4. Clears downloads directory
+# 5. Resumes from checkpoint for next batch
+# 6. Repeats until all artists processed
+
+# How --max-artists works:
+# - Stops cleanly after processing N artists in current run
+# - Saves checkpoint before stopping
+# - Shows resume command for next batch
+# - Works with --resume for seamless continuation
+
+# Example: 40,918 artists with 183GB disk
+# Batch size: 1,900 artists (~150GB per batch)
+# Total batches: ~22 batches
+# Timeline: ~2-3 hours per batch = ~60 hours total
+# Disk usage: Never exceeds 150GB
+
+# Benefits:
+# ✓ Process unlimited artists with limited disk space
+# ✓ Automated archive → verify → clear → resume cycle
+# ✓ Safe: Verifies archives before clearing downloads
+# ✓ Resumable: Can stop/restart at any batch
+# ✓ Monitoring: Shows progress and disk space per batch
+```
+
+### 13. Create Archive After Download
 ```bash
 # Download and create ZIP archive
 ymusic-cli -a "9045812" -n 10 -o ./downloads --archive
@@ -257,6 +317,7 @@ ymusic-cli -a "9045812,10393751" -n 5 --shuffle --archive -o ./downloads
 - `--session-name NAME` - Unique session name for progress tracking (enables resume on interruption/failure)
 - `--resume` / `--continue` - Resume from last checkpoint if session exists (requires `--session-name`)
 - `--reset-progress` - Clear saved progress for session and start fresh (requires `--session-name`)
+- `--max-artists N` - Stop after processing N artists in this run (for batch processing with limited disk space). Works with `--resume` for batch workflow.
 
 ### Utility
 - `-v, --verbose` - Enable verbose logging
