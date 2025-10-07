@@ -67,22 +67,44 @@ class MusicDiscoveryCLI:
         }
 
     def _setup_logging(self) -> logging.Logger:
-        """Setup logging configuration."""
-        log_level = logging.DEBUG if self.args.verbose else logging.INFO
+        """Setup logging with file output using CommandLogger."""
+        from ymusic_cli.utils.logger import CommandLogger
 
-        logging.basicConfig(
-            level=log_level,
-            format='%(asctime)s | %(levelname)s | %(name)s | %(message)s',
-            handlers=[
-                logging.StreamHandler(sys.stdout)
-            ]
+        # Extract command parameters for log naming
+        command_params = {
+            'artist_ids': self.args.artist_id.split(',') if hasattr(self.args, 'artist_id') else [],
+            'similar': getattr(self.args, 'similar', 0),
+            'depth': getattr(self.args, 'depth', 0),
+            'years': self._parse_years(self.args.years) if hasattr(self.args, 'years') and self.args.years else None,
+            'tracks': getattr(self.args, 'tracks', 0),
+            'in_top_n': getattr(self.args, 'in_top_n', None),
+            'archive': getattr(self.args, 'archive', False),
+        }
+
+        # Determine log level
+        log_level = "DEBUG" if self.args.verbose else self.settings.logging.level
+
+        # Create command logger
+        self.command_logger = CommandLogger(
+            log_dir=self.settings.logging.log_dir,
+            command_params=command_params,
+            log_to_file=self.settings.logging.log_to_file,
+            log_to_console=self.settings.logging.log_to_console,
+            log_level=log_level
         )
+
+        logger = self.command_logger.get_logger()
 
         # Suppress noisy loggers
         logging.getLogger("httpx").setLevel(logging.WARNING)
         logging.getLogger("telegram").setLevel(logging.WARNING)
 
-        return logging.getLogger(__name__)
+        # Log to file notification
+        if self.settings.logging.log_to_file:
+            log_path = self.command_logger.get_log_path()
+            print(f"📝 Logging to: {log_path}\n")
+
+        return logger
 
     async def initialize_services(self) -> None:
         """Initialize all required services."""
@@ -415,15 +437,65 @@ class MusicDiscoveryCLI:
             return []
 
     def _generate_track_filename(self, track: Track, artist: Artist) -> str:
-        """Generate filename for a track."""
+        """Generate enhanced filename for a track with metadata.
+
+        Format: {ArtistName} - {TrackTitle} [{Year}] [AID{ArtistID}] [TID{TrackID}].mp3
+        Example: Юлдуз Усманова - Sevaman seni [2024] [AID328849] [TID142345678].mp3
+        """
+        # Get base components
         title = self._sanitize_filename(track.title)
         artist_name = self._sanitize_filename(artist.name)
 
-        filename = f"{artist_name} - {title}.mp3"
+        # Get year from track or filter
+        year = None
+        if track.year:
+            year = track.year
+        elif hasattr(self.args, 'years') and self.args.years:
+            # Use year range from filter
+            try:
+                start_year, end_year = self._parse_years(self.args.years)
+                if start_year == end_year:
+                    year = start_year
+                # else: year range ambiguous, skip year in filename
+            except:
+                pass
 
-        # Ensure filename isn't too long
-        if len(filename) > 200:
-            filename = filename[:197] + "..."
+        # Build filename components
+        # Format: {ArtistName} - {TrackTitle} [{Year}] [AID{ArtistID}] [TID{TrackID}].mp3
+        parts = [f"{artist_name} - {title}"]
+
+        # Add year if available
+        if year:
+            parts.append(f"[{year}]")
+
+        # Add Artist ID
+        parts.append(f"[AID{artist.id}]")
+
+        # Add Track ID
+        parts.append(f"[TID{track.id}]")
+
+        filename = " ".join(parts) + ".mp3"
+
+        # Ensure filename isn't too long (filesystem limit ~255 chars)
+        if len(filename) > 250:
+            # Calculate how much space we need for metadata
+            metadata_suffix = ""
+            if year:
+                metadata_suffix += f" [{year}]"
+            metadata_suffix += f" [AID{artist.id}] [TID{track.id}].mp3"
+
+            # Truncate title part to fit
+            max_base_len = 250 - len(metadata_suffix) - len(artist_name) - 3  # 3 for " - "
+            if max_base_len > 20:  # Ensure we have reasonable space
+                title_truncated = title[:max_base_len]
+                filename = f"{artist_name} - {title_truncated}{metadata_suffix}"
+            else:
+                # If artist name is too long, truncate it too
+                max_artist_len = 50
+                max_title_len = 250 - len(metadata_suffix) - max_artist_len - 3
+                artist_truncated = artist_name[:max_artist_len]
+                title_truncated = title[:max_title_len] if max_title_len > 0 else ""
+                filename = f"{artist_truncated} - {title_truncated}{metadata_suffix}"
 
         return filename
 
@@ -592,12 +664,34 @@ class MusicDiscoveryCLI:
             self.stats['end_time'] = datetime.now()
             self._print_statistics()
 
+            # Log completion and cleanup
+            if hasattr(self, 'command_logger') and self.settings.logging.log_to_file:
+                log_path = self.command_logger.get_log_path()
+                self.logger.info(f"✅ Execution complete. Log saved to: {log_path}")
+
+                # Cleanup old logs
+                self.command_logger.cleanup_old_logs(
+                    max_files=self.settings.logging.max_log_files,
+                    max_age_days=self.settings.logging.log_rotation_days
+                )
+
         except KeyboardInterrupt:
             self.logger.warning("\n\n⚠️  Process interrupted by user")
             self._print_statistics()
 
+            # Log interruption
+            if hasattr(self, 'command_logger') and self.settings.logging.log_to_file:
+                log_path = self.command_logger.get_log_path()
+                self.logger.warning(f"⚠️  Interrupted. Partial log saved to: {log_path}")
+
         except Exception as e:
             self.logger.error(f"\n\n❌ Error: {e}", exc_info=self.args.verbose)
+
+            # Log error
+            if hasattr(self, 'command_logger') and self.settings.logging.log_to_file:
+                log_path = self.command_logger.get_log_path()
+                self.logger.error(f"❌ Execution failed. Error log saved to: {log_path}")
+
             raise
 
         finally:

@@ -36,10 +36,11 @@ class BotLimits:
 @dataclass
 class FileConfig:
     """File management configuration."""
-    temp_dir: Path = field(default_factory=lambda: Path(os.getenv("TEMP_DIR", "/tmp/music_bot")))
+    temp_dir: Path = field(default_factory=lambda: Path(os.getenv("TEMP_DIR", "./storage/temp")))
     storage_dir: Path = field(default_factory=lambda: Path(os.getenv("STORAGE_DIR", "./storage")))
     songs_cache_dir: Path = field(default_factory=lambda: Path(os.getenv("SONGS_CACHE_DIR", "./storage/downloads/tracks")))
     archives_dir: Path = field(default_factory=lambda: Path(os.getenv("ARCHIVES_DIR", "./storage/downloads/archives")))
+    cache_dir: Path = field(default_factory=lambda: Path(os.getenv("CACHE_DIR", "./storage/cache")))
     songs_cache_ttl: int = field(default_factory=lambda: int(os.getenv("SONGS_CACHE_TTL", "0")))
     delete_archives_after_upload: bool = field(default_factory=lambda: os.getenv("DELETE_ARCHIVES_AFTER_UPLOAD", "false").lower() == "true")
     max_file_size_mb: int = field(default_factory=lambda: int(os.getenv("MAX_FILE_SIZE_MB", "100")))
@@ -90,6 +91,11 @@ class LoggingConfig:
     level: str = field(default_factory=lambda: os.getenv("LOG_LEVEL", "INFO"))
     format: str = field(default_factory=lambda: os.getenv("LOG_FORMAT", "json"))
     sentry_dsn: Optional[str] = field(default_factory=lambda: os.getenv("SENTRY_DSN") or None)
+    log_dir: Path = field(default_factory=lambda: Path(os.getenv("LOG_DIR", "./storage/logs")))
+    log_to_file: bool = field(default_factory=lambda: os.getenv("LOG_TO_FILE", "true").lower() == "true")
+    log_to_console: bool = field(default_factory=lambda: os.getenv("LOG_TO_CONSOLE", "true").lower() == "true")
+    max_log_files: int = field(default_factory=lambda: int(os.getenv("MAX_LOG_FILES", "100")))
+    log_rotation_days: int = field(default_factory=lambda: int(os.getenv("LOG_ROTATION_DAYS", "30")))
 
 
 @dataclass
@@ -125,10 +131,25 @@ class Settings:
 
     def __post_init__(self):
         """Validate and prepare settings."""
-        # Ensure directories exist
-        self.files.temp_dir.mkdir(parents=True, exist_ok=True)
-        self.files.storage_dir.mkdir(parents=True, exist_ok=True)
-        (self.files.storage_dir / "downloads").mkdir(parents=True, exist_ok=True)
+        # Define all base directories that should exist
+        base_dirs = [
+            self.files.storage_dir,
+            self.files.storage_dir / "downloads",
+            self.files.storage_dir / "downloads" / "tracks",
+            self.files.storage_dir / "downloads" / "archives",
+            self.files.storage_dir / "temp",
+            self.files.storage_dir / "cache",
+            self.files.storage_dir / "cache" / "metadata",
+            self.logging.log_dir,
+        ]
+
+        # Create all directories and .gitkeep files
+        for directory in base_dirs:
+            directory.mkdir(parents=True, exist_ok=True)
+            # Create .gitkeep to preserve directory structure in git
+            gitkeep = directory / ".gitkeep"
+            if not gitkeep.exists():
+                gitkeep.touch()
 
         # Validate required settings (BOT_TOKEN not required for CLI)
         if not self.yandex.token:

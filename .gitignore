@@ -40,8 +40,26 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Downloaded music
-storage/
+# Storage - ignore all content but keep structure
+storage/**
+!storage/
+!storage/.gitkeep
+!storage/downloads/
+!storage/downloads/.gitkeep
+!storage/downloads/tracks/
+!storage/downloads/tracks/.gitkeep
+!storage/downloads/archives/
+!storage/downloads/archives/.gitkeep
+!storage/logs/
+!storage/logs/.gitkeep
+!storage/temp/
+!storage/temp/.gitkeep
+!storage/cache/
+!storage/cache/.gitkeep
+!storage/cache/metadata/
+!storage/cache/metadata/.gitkeep
+
+# Downloaded music files
 downloads/
 *.mp3
 *.flac
