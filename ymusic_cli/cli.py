@@ -89,9 +89,19 @@ class MusicDiscoveryCLI:
         self.logger.info("Initializing services...")
 
         try:
-            # Cache service
+            # Cache service (with optional Redis support)
             self.cache_service = create_cache_service()
-            self.logger.debug("✓ Cache service initialized")
+
+            # Initialize cache (required for Redis async connection)
+            if hasattr(self.cache_service, 'initialize'):
+                await self.cache_service.initialize()
+
+            # Log cache type
+            if hasattr(self.cache_service, 'use_redis'):
+                cache_type = "Redis with in-memory fallback" if self.cache_service.use_redis else "In-Memory"
+            else:
+                cache_type = "In-Memory"
+            self.logger.info(f"✓ Cache service initialized ({cache_type})")
 
             # Yandex Music service
             self.music_service = YandexMusicService(
@@ -137,6 +147,10 @@ class MusicDiscoveryCLI:
 
         if self.download_service:
             await self.download_service.cleanup()
+
+        # Cleanup cache service (important for Redis connections)
+        if self.cache_service and hasattr(self.cache_service, 'cleanup'):
+            await self.cache_service.cleanup()
 
         self.logger.info("✓ Cleanup complete")
 
