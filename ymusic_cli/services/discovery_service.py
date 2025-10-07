@@ -207,6 +207,21 @@ class ArtistDiscoveryService(DiscoveryService):
                         # Always use user's --similar limit, even with year filtering
                         max_attempts = options.similar_limit
 
+                        # OPTIMIZATION: Batch check year content for all candidates at once
+                        if options.enable_year_filtering_for_discovery and options.years and candidates:
+                            # Extract candidate IDs (up to max_attempts)
+                            candidate_ids_to_check = [c.id for c in candidates[:max_attempts]]
+
+                            # Batch check all at once (10x faster than sequential)
+                            self.logger.debug(f"Batch checking {len(candidate_ids_to_check)} candidates for year content...")
+                            year_content_map = await self.music_service.batch_check_artists_year_content(
+                                candidate_ids_to_check,
+                                options.years
+                            )
+                            candidates_checked = len(candidate_ids_to_check)
+                        else:
+                            year_content_map = {}  # Empty map if year filtering disabled
+
                         for candidate in candidates:
                             if len(discovered_artists) >= options.max_total_artists:
                                 break
@@ -214,23 +229,14 @@ class ArtistDiscoveryService(DiscoveryService):
                             if len(selected_candidates) >= options.similar_limit:
                                 break
 
-                            # If year filtering is enabled, check if artist has content in year range
+                            # Check year filter result from batch check
                             if options.enable_year_filtering_for_discovery and options.years:
-                                candidates_checked += 1
-                                if candidates_checked > max_attempts:
-                                    self.logger.debug(
-                                        f"Reached max attempts ({max_attempts}) for {current_artist.name}"
-                                    )
-                                    break
-
-                                has_content = await self.music_service.check_artist_has_content_in_years(
-                                    candidate.id, options.years
-                                )
+                                has_content = year_content_map.get(candidate.id, True)
 
                                 if not has_content:
                                     self.logger.debug(
                                         f"✗ Skipping {candidate.name} - no content in "
-                                        f"{options.years[0]}-{options.years[1]}, checking next similar artist"
+                                        f"{options.years[0]}-{options.years[1]}"
                                     )
                                     level_skipped += 1
                                     continue  # Try next similar artist

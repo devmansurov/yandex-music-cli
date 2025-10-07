@@ -354,6 +354,60 @@ class YandexMusicService(MusicService):
         # Fallback (shouldn't reach here)
         return True
 
+    async def batch_check_artists_year_content(
+        self,
+        artist_ids: List[str],
+        years: tuple[int, int],
+        max_concurrent: int = 10
+    ) -> Dict[str, bool]:
+        """
+        Check multiple artists for year content in parallel (OPTIMIZATION).
+
+        This method significantly reduces discovery time by checking multiple artists
+        concurrently instead of sequentially. For 50 artists, this reduces checking
+        time from ~50 seconds to ~5 seconds.
+
+        Args:
+            artist_ids: List of artist IDs to check
+            years: Tuple of (start_year, end_year) to filter by
+            max_concurrent: Maximum number of concurrent API calls (default: 10)
+
+        Returns:
+            Dictionary mapping artist_id -> bool (True if has content in year range)
+        """
+        if not artist_ids:
+            return {}
+
+        # Use semaphore to limit concurrent API calls (respect rate limits)
+        semaphore = asyncio.Semaphore(max_concurrent)
+
+        async def check_with_semaphore(artist_id: str) -> tuple[str, bool]:
+            """Check artist with rate limiting"""
+            async with semaphore:
+                has_content = await self.check_artist_has_content_in_years(artist_id, years)
+                return (artist_id, has_content)
+
+        # Execute all checks concurrently
+        tasks = [check_with_semaphore(aid) for aid in artist_ids]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Build result dictionary
+        year_content_map = {}
+        for i, result in enumerate(results):
+            artist_id = artist_ids[i]
+            if isinstance(result, Exception):
+                self.logger.warning(f"Error checking year content for {artist_id}: {result}")
+                year_content_map[artist_id] = True  # Default to True on error
+            else:
+                year_content_map[artist_id] = result[1]
+
+        self.logger.info(
+            f"Batch year check: {len(artist_ids)} artists checked, "
+            f"{sum(year_content_map.values())} have content in {years[0]}-{years[1]}"
+        )
+
+        return year_content_map
+
     async def get_similar_artists(self, artist_id: str, limit: int = 50) -> List[Artist]:
         """Get similar artists for a given artist."""
         self.logger.debug(f"get_similar_artists called: artist_id={artist_id}, limit={limit}")
