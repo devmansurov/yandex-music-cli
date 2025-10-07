@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 import tempfile
 from pathlib import Path
 from typing import List, Optional, AsyncIterator, Dict, Any
@@ -93,12 +94,21 @@ class DownloadOrchestrator(DownloadService):
                     # Check if cached file still exists
                     cached_file = Path(cached_path)
                     if cached_file.exists():
-                        # If output path is different from cached path, copy the file
+                        # If output path is different from cached path, create hard link
                         if cached_file != output_path:
                             output_path.parent.mkdir(parents=True, exist_ok=True)
-                            import shutil
-                            shutil.copy2(str(cached_file), str(output_path))
-                            self.logger.info(f"Using cached track {track.id} from {cached_file}")
+                            # Use hard link to save disk space
+                            try:
+                                if output_path.exists():
+                                    output_path.unlink()
+                                os.link(str(cached_file), str(output_path))
+                                self.logger.info(f"Using cached track {track.id} from {cached_file}")
+                            except OSError as e:
+                                # Fallback to copy if hard link fails
+                                self.logger.warning(f"Hard link failed, falling back to copy: {e}")
+                                import shutil
+                                shutil.copy2(str(cached_file), str(output_path))
+                                self.logger.info(f"Using cached track {track.id} from {cached_file}")
                         else:
                             self.logger.info(f"Track {track.id} already cached at {cached_file}")
                         track.file_path = output_path
@@ -158,11 +168,22 @@ class DownloadOrchestrator(DownloadService):
                         
                         # Optional progress callback could be added here
             
-            # If we downloaded to cache, copy to output path if different
+            # If we downloaded to cache, create hard link to output path if different
             if cache_path != output_path:
                 output_path.parent.mkdir(parents=True, exist_ok=True)
-                import shutil
-                shutil.copy2(str(cache_path), str(output_path))
+                # Use hard link instead of copy to save disk space
+                # Hard links point to the same inode (same physical file)
+                try:
+                    # Remove existing file if it exists (for updates)
+                    if output_path.exists():
+                        output_path.unlink()
+                    os.link(str(cache_path), str(output_path))
+                    self.logger.debug(f"Created hard link from {cache_path} to {output_path}")
+                except OSError as e:
+                    # Fallback to copy if hard link fails (e.g., cross-filesystem)
+                    self.logger.warning(f"Hard link failed, falling back to copy: {e}")
+                    import shutil
+                    shutil.copy2(str(cache_path), str(output_path))
 
             # Update track with file info
             track.file_path = output_path
