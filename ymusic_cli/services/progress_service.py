@@ -5,7 +5,7 @@ import json
 import logging
 import hashlib
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 from ymusic_cli.core.models import ProgressCheckpoint, Artist
@@ -315,6 +315,40 @@ class ProgressService:
             )
             return False
         return True
+
+    async def get_session_info(self, session_name: str) -> Optional[Dict[str, Any]]:
+        """Get detailed session information.
+
+        Args:
+            session_name: Session name to query
+
+        Returns:
+            Dict with session stats or None if not found
+        """
+        checkpoint = await self.load_checkpoint(session_name)
+        if not checkpoint:
+            return None
+
+        processed = len(checkpoint.processed_artist_ids)
+        remaining = checkpoint.total_artists - processed
+        progress_pct = (processed / checkpoint.total_artists * 100) if checkpoint.total_artists > 0 else 0
+
+        elapsed = (checkpoint.last_updated_at - checkpoint.started_at).total_seconds()
+
+        return {
+            'session_name': checkpoint.session_name,
+            'total_artists': checkpoint.total_artists,
+            'processed': processed,
+            'remaining': remaining,
+            'progress_percent': progress_pct,
+            'last_artist_id': checkpoint.last_artist_id,
+            'last_index': checkpoint.last_artist_index,
+            'elapsed_hours': elapsed / 3600,
+            'is_complete': checkpoint.is_complete,
+            'command_hash': checkpoint.command_hash,
+            'tracks_downloaded': checkpoint.tracks_downloaded,
+            'tracks_failed': checkpoint.tracks_failed
+        }
 
     def get_progress_summary(self) -> Optional[str]:
         """Get human-readable progress summary.

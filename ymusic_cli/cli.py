@@ -747,6 +747,17 @@ class MusicDiscoveryCLI:
                         command_hash=command_hash
                     )
 
+                # Check if batch limit reached
+                if self.args.max_artists and (idx + 1) >= self.args.max_artists:
+                    total_count = checkpoint.total_artists if checkpoint else original_count
+                    self.logger.info(f"\n✅ Batch limit reached: {self.args.max_artists} artists processed in this run")
+                    self.logger.info(f"   Overall progress: {current_index}/{total_count} artists " +
+                                   f"({(current_index/total_count*100):.1f}%)")
+                    if self.args.session_name:
+                        self.logger.info(f"   Session: {self.args.session_name}")
+                        self.logger.info(f"\n📍 Resume next batch with: --session-name {self.args.session_name} --resume --max-artists {self.args.max_artists}")
+                    break  # Exit artist processing loop cleanly
+
                 # Respect max concurrent downloads setting
                 if self.args.parallel < 5:
                     await asyncio.sleep(0.5)  # Small delay between artists
@@ -1012,6 +1023,14 @@ Examples:
         help='Clear saved progress for this session and start fresh (requires --session-name)'
     )
 
+    parser.add_argument(
+        '--max-artists',
+        type=int,
+        metavar='N',
+        dest='max_artists',
+        help='Stop after processing N artists in this run (for batch processing with limited disk space)'
+    )
+
     # Utility options
     parser.add_argument(
         '-v', '--verbose',
@@ -1063,6 +1082,10 @@ Examples:
 
     if args.resume and args.reset_progress:
         parser.error("--resume and --reset-progress cannot be used together")
+
+    # Validate batch processing arguments
+    if args.max_artists and args.max_artists < 1:
+        parser.error("--max-artists must be >= 1")
 
     # Update settings for max concurrent downloads
     settings = get_settings()
