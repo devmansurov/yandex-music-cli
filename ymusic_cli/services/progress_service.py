@@ -41,21 +41,21 @@ class ProgressService:
         self,
         artist_ids: List[str],
         similar_limit: int,
-        depth: int,
-        tracks_per_artist: int
+        max_depth: int,
+        songs_per_artist: int
     ) -> str:
         """Generate hash for command compatibility check.
 
         Args:
             artist_ids: List of base artist IDs
             similar_limit: Number of similar artists per artist
-            depth: Recursive depth
-            tracks_per_artist: Number of tracks per artist
+            max_depth: Recursive max depth
+            songs_per_artist: Number of songs per artist
 
         Returns:
             Hash string for compatibility checking
         """
-        content = f"{','.join(sorted(artist_ids))}_{similar_limit}_{depth}_{tracks_per_artist}"
+        content = f"{','.join(sorted(artist_ids))}_{similar_limit}_{max_depth}_{songs_per_artist}"
         return hashlib.md5(content.encode()).hexdigest()[:12]
 
     async def load_checkpoint(self, session_name: str) -> Optional[ProgressCheckpoint]:

@@ -637,8 +637,8 @@ class MusicDiscoveryCLI:
                 command_hash = self.progress_service.generate_command_hash(
                     artist_ids=artist_ids,
                     similar_limit=options.similar_limit,
-                    depth=options.depth,
-                    tracks_per_artist=options.tracks_per_artist
+                    max_depth=options.max_depth,
+                    songs_per_artist=options.songs_per_artist
                 )
 
                 # Handle --reset-progress
