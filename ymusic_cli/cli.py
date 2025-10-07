@@ -406,8 +406,25 @@ class MusicDiscoveryCLI:
                         downloaded_tracks.append(track)
                         continue
 
-                    # Download track
-                    success = await self.download_service.download_track(track, output_path)
+                    # Extract year for filename generation
+                    year = None
+                    if track.year:
+                        year = track.year
+                    elif hasattr(self.args, 'years') and self.args.years:
+                        try:
+                            start_year, end_year = self._parse_years(self.args.years)
+                            if start_year == end_year:
+                                year = start_year
+                        except:
+                            pass
+
+                    # Download track with artist and year for enhanced cache filenames
+                    success = await self.download_service.download_track(
+                        track,
+                        output_path,
+                        artist=artist,
+                        year=year
+                    )
 
                     if success:
                         downloaded_tracks.append(track)

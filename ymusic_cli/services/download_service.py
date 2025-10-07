@@ -56,8 +56,21 @@ class DownloadOrchestrator(DownloadService):
             await self.session.close()
         self.logger.info("Download service cleaned up")
     
-    async def download_track(self, track: Track, output_path: Path) -> bool:
-        """Download a single track with caching support."""
+    async def download_track(
+        self,
+        track: Track,
+        output_path: Path,
+        artist: Optional[Any] = None,
+        year: Optional[int] = None
+    ) -> bool:
+        """Download a single track with caching support.
+
+        Args:
+            track: Track to download
+            output_path: Path where the track should be saved
+            artist: Artist object for enhanced filename generation (optional)
+            year: Year for enhanced filename generation (optional)
+        """
         if not self.session:
             raise DownloadError("Download service not initialized")
 
@@ -91,9 +104,10 @@ class DownloadOrchestrator(DownloadService):
             if hasattr(self.settings.files, 'songs_cache_dir'):
                 cache_dir = self.settings.files.songs_cache_dir
                 cache_dir.mkdir(parents=True, exist_ok=True)
-                # Create unique filename for cache
+                # Create enhanced filename for cache
                 file_ext = output_path.suffix
-                cache_path = cache_dir / f"{track.id}_{track.title[:50].replace('/', '_')}{file_ext}"
+                cache_filename = self._generate_enhanced_filename(track, artist, year, file_ext)
+                cache_path = cache_dir / cache_filename
             else:
                 cache_path = output_path
 
@@ -275,21 +289,89 @@ class DownloadOrchestrator(DownloadService):
             self.logger.error(f"Error cancelling download {task_id}: {e}")
             return False
     
+    def _generate_enhanced_filename(
+        self,
+        track: Track,
+        artist: Optional[Any],
+        year: Optional[int],
+        file_ext: str = ".mp3"
+    ) -> str:
+        """Generate enhanced filename with artist ID, track ID, and year metadata.
+
+        Format: {ArtistName} - {TrackTitle} [{Year}] [AID{ArtistID}] [TID{TrackID}].mp3
+        Example: Юлдуз Усманова - Sevaman seni [2024] [AID328849] [TID142345678].mp3
+        """
+        # Get artist name
+        if artist and hasattr(artist, 'name'):
+            artist_name = self._sanitize_filename(artist.name)
+        elif track.artist_names:
+            artist_name = self._sanitize_filename(", ".join(track.artist_names))
+        else:
+            artist_name = "Unknown Artist"
+
+        # Get track title
+        title = self._sanitize_filename(track.title)
+
+        # Build filename components
+        parts = [f"{artist_name} - {title}"]
+
+        # Add year if available
+        if year:
+            parts.append(f"[{year}]")
+        elif hasattr(track, 'year') and track.year:
+            parts.append(f"[{track.year}]")
+
+        # Add Artist ID if available
+        if artist and hasattr(artist, 'id'):
+            parts.append(f"[AID{artist.id}]")
+
+        # Add Track ID (always available)
+        parts.append(f"[TID{track.id}]")
+
+        filename = " ".join(parts) + file_ext
+
+        # Ensure filename isn't too long (filesystem limit ~255 chars)
+        if len(filename) > 250:
+            # Calculate metadata suffix length
+            metadata_suffix = ""
+            if year:
+                metadata_suffix += f" [{year}]"
+            elif hasattr(track, 'year') and track.year:
+                metadata_suffix += f" [{track.year}]"
+            if artist and hasattr(artist, 'id'):
+                metadata_suffix += f" [AID{artist.id}]"
+            metadata_suffix += f" [TID{track.id}]{file_ext}"
+
+            # Truncate title part to fit
+            max_base_len = 250 - len(metadata_suffix) - len(artist_name) - 3  # 3 for " - "
+            if max_base_len > 20:  # Ensure we have reasonable space
+                title_truncated = title[:max_base_len]
+                filename = f"{artist_name} - {title_truncated}{metadata_suffix}"
+            else:
+                # If artist name is too long, truncate it too
+                max_artist_len = 50
+                max_title_len = 250 - len(metadata_suffix) - max_artist_len - 3
+                artist_truncated = artist_name[:max_artist_len]
+                title_truncated = title[:max_title_len] if max_title_len > 0 else ""
+                filename = f"{artist_truncated} - {title_truncated}{metadata_suffix}"
+
+        return filename
+
     def _generate_filename(self, track: Track) -> str:
-        """Generate a safe filename for a track."""
+        """Generate a safe filename for a track (legacy method for backward compatibility)."""
         # Sanitize title and artist names
         title = self._sanitize_filename(track.title)
         artists = ", ".join(track.artist_names) if track.artist_names else "Unknown Artist"
         artists = self._sanitize_filename(artists)
-        
+
         # Create filename with quality indicator
         quality_suffix = f"_{track.quality.value}" if track.quality != track.quality.HIGH else ""
         filename = f"{artists} - {title}{quality_suffix}.mp3"
-        
+
         # Ensure filename isn't too long
         if len(filename) > 200:
             filename = filename[:197] + "..."
-        
+
         return filename
     
     def _sanitize_filename(self, name: str) -> str:
