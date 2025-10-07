@@ -239,7 +239,7 @@ class YandexMusicService(MusicService):
                 return cached
 
         # Retry logic for API calls
-        max_retries = 3
+        max_retries = 2  # Reduced from 3 for faster failures
         retry_delay = 1.0
 
         for attempt in range(max_retries):
@@ -268,7 +268,7 @@ class YandexMusicService(MusicService):
                 if not artist:
                     # Cache negative result but include artist (artist exists but no info available)
                     if self.cache:
-                        await self.cache.set(cache_key, True, ttl_seconds=1800)  # Cache for 30 minutes
+                        await self.cache.set(cache_key, True, ttl_seconds=300)  # Cache for 5 minutes (error case)
                     return True
 
                 # Check albums for year range
@@ -318,7 +318,7 @@ class YandexMusicService(MusicService):
 
                     if self.cache:
                         # Cache as True to avoid repeated failed checks for this artist
-                        await self.cache.set(cache_key, True, ttl_seconds=1800)  # Cache for 30 minutes
+                        await self.cache.set(cache_key, True, ttl_seconds=300)  # Cache for 5 minutes (error case)
                     return True  # Default to True on error to avoid filtering out potentially valid artists
 
         # Fallback (shouldn't reach here)

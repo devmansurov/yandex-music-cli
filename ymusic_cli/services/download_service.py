@@ -78,6 +78,14 @@ class DownloadOrchestrator(DownloadService):
             # Generate cache key for this track
             cache_key = f"track_{track.id}"
 
+            # Check if track failed recently (negative cache)
+            if self.cache_service:
+                failed_key = f"failed_track_{track.id}"
+                failed = await self.cache_service.get(failed_key)
+                if failed:
+                    self.logger.debug(f"Skipping recently failed track {track.id}: {failed}")
+                    return False
+
             # Check if track exists in cache
             if self.cache_service:
                 cached_path = await self.cache_service.get(cache_key)
@@ -174,12 +182,19 @@ class DownloadOrchestrator(DownloadService):
             
         except aiohttp.ClientError as e:
             self.logger.error(f"Network error downloading track {track.id}: {e}")
+            # Cache network failures for 5 minutes (short TTL for quick retry)
+            if self.cache_service:
+                await self.cache_service.set(f"failed_track_{track.id}", str(e), ttl_seconds=300)
             raise NetworkError(f"Network error: {e}")
         except OSError as e:
             self.logger.error(f"File system error downloading track {track.id}: {e}")
+            # Don't cache filesystem errors (might be resolved immediately)
             raise FileSystemError(f"File system error: {e}", str(output_path))
         except Exception as e:
             self.logger.error(f"Unexpected error downloading track {track.id}: {e}")
+            # Cache generic failures for 5 minutes
+            if self.cache_service:
+                await self.cache_service.set(f"failed_track_{track.id}", str(e), ttl_seconds=300)
             raise DownloadError(f"Download failed: {e}", track.id)
     
     async def download_tracks(

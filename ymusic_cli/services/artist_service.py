@@ -197,12 +197,12 @@ class ArtistService:
             logger.error(f"Error in fallback similar artists for {artist_id}: {e}")
             return []
 
-    async def get_artist_info(self, artist_id: str, max_retries: int = 3) -> Optional[Any]:
+    async def get_artist_info(self, artist_id: str, max_retries: int = 2) -> Optional[Any]:
         """Get detailed artist information with retry logic for transient network errors.
 
         Args:
             artist_id: Yandex Music artist ID
-            max_retries: Maximum number of retry attempts for connection errors
+            max_retries: Maximum number of retry attempts for connection errors (reduced to 2 for faster failures)
 
         Returns:
             Artist object or None if not found
