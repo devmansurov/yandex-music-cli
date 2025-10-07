@@ -290,36 +290,6 @@ class YandexMusicService(MusicService):
                             # Continue checking other albums
                             continue
 
-                # If no albums found in range, check discography for releases
-                try:
-                    discography = await asyncio.wait_for(
-                        asyncio.get_event_loop().run_in_executor(
-                            None, lambda: client.artists_discography(artist_id)
-                        ),
-                        timeout=10.0  # 10 second timeout
-                    )
-
-                    if discography and hasattr(discography, 'albums'):
-                        for album in discography.albums:
-                            try:
-                                if hasattr(album, 'year') and album.year:
-                                    if years[0] <= album.year <= years[1]:
-                                        if self.cache:
-                                            await self.cache.set(cache_key, True, ttl_seconds=3600)
-                                        return True
-                            except Exception as e:
-                                # Handle album data issues in discography
-                                error_str = str(e)
-                                if "Description.__init__()" in error_str and "uri" in error_str:
-                                    self.logger.debug(f"Discography album data issue for artist {artist_id}: {e}")
-                                else:
-                                    self.logger.debug(f"Unexpected discography album error for artist {artist_id}: {e}")
-                                # Continue checking other albums
-                                continue
-                except (asyncio.TimeoutError, Exception) as e:
-                    self.logger.debug(f"Discography check failed for artist {artist_id}: {e}")
-                    # Don't retry discography, continue with result from brief_info
-
                 # No content found in specified years, but cache result and exclude artist
                 if self.cache:
                     await self.cache.set(cache_key, False, ttl_seconds=3600)
