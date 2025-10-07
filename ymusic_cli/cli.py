@@ -72,7 +72,7 @@ class MusicDiscoveryCLI:
 
         # Extract command parameters for log naming
         command_params = {
-            'artist_ids': self.args.artist_id.split(',') if hasattr(self.args, 'artist_id') else [],
+            'artist_ids': self.args.artist_id.split(',') if hasattr(self.args, 'artist_id') and self.args.artist_id else [],
             'similar': getattr(self.args, 'similar', 0),
             'depth': getattr(self.args, 'depth', 0),
             'years': self._parse_years(self.args.years) if hasattr(self.args, 'years') and self.args.years else None,
@@ -763,13 +763,19 @@ Examples:
         """
     )
 
-    # Required arguments
-    parser.add_argument(
+    # Required arguments (mutually exclusive group)
+    artist_input = parser.add_mutually_exclusive_group(required=True)
+    artist_input.add_argument(
         '-a', '--artist-id',
         type=str,
-        required=True,
         metavar='ID',
         help='Base artist ID(s) from Yandex Music (comma-separated for multiple: "123,456,789")'
+    )
+    artist_input.add_argument(
+        '--artists-file',
+        type=str,
+        metavar='FILE',
+        help='Path to file containing comma-separated artist IDs (useful for 300+ artists)'
     )
 
     parser.add_argument(
@@ -890,6 +896,25 @@ Examples:
     )
 
     args = parser.parse_args()
+
+    # Handle --artists-file: read and set artist_id from file
+    if args.artists_file:
+        try:
+            file_path = Path(args.artists_file)
+            if not file_path.exists():
+                parser.error(f"Artists file not found: {args.artists_file}")
+
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read().strip()
+
+            if not content:
+                parser.error(f"Artists file is empty: {args.artists_file}")
+
+            # Set artist_id from file content (overwrites None from args)
+            args.artist_id = content
+
+        except IOError as e:
+            parser.error(f"Failed to read artists file: {e}")
 
     # Validate arguments
     if args.depth < 0:

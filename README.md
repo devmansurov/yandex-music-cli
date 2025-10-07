@@ -135,7 +135,35 @@ ymusic-cli -a 9045812 -s 20 -n 5 -y 2024-2025 --in-top 15% -o ./downloads
 # 5. Strict mode: If only 2 songs match, downloads only 2 (not 5)
 ```
 
-### 10. Create Archive After Download
+### 10. Large-Scale Discovery (300+ Artists)
+```bash
+# For very large artist lists (300+ artists), use --artists-file to avoid shell command line limits
+# Shell command line max length: ~131KB (varies by system)
+
+# Step 1: Create a file with comma-separated artist IDs (one line, no spaces recommended)
+cat > artists.txt << 'EOF'
+451,1053,1056,1151,1156,1438,1520328,1532779,1555742,1636897,2334946,2429955,2444218...
+EOF
+
+# Step 2: Run with --artists-file instead of -a
+ymusic-cli --artists-file artists.txt -n 10 --similar 50 --depth 2 -o ./downloads
+
+# For persistent execution on remote servers (survives SSH disconnect):
+# Option A: Using nohup
+nohup ymusic-cli --artists-file artists.txt -n 10 --similar 50 --depth 2 -o ./downloads > ymusic.log 2>&1 &
+
+# Option B: Using screen
+screen -dmS discovery ymusic-cli --artists-file artists.txt -n 10 --similar 50 --depth 2 -o ./downloads
+screen -r discovery  # Attach to session
+
+# Benefits of --artists-file:
+# ✓ No shell command line length limits
+# ✓ Reusable artist lists across multiple runs
+# ✓ Easier to manage and version control large artist collections
+# ✓ Works with both -a and --artists-file (mutually exclusive)
+```
+
+### 11. Create Archive After Download
 ```bash
 # Download and create ZIP archive
 ymusic-cli -a "9045812" -n 10 -o ./downloads --archive
@@ -149,8 +177,9 @@ ymusic-cli -a "9045812,10393751" -n 5 --shuffle --archive -o ./downloads
 
 ## Parameters
 
-### Required
+### Required (choose one)
 - `-a, --artist-id ID` - Yandex Music artist ID(s) (comma-separated for multiple: "123,456,789")
+- `--artists-file FILE` - Path to file containing comma-separated artist IDs (for 300+ artists)
 
 ### Optional
 - `-o, --output-dir DIR` - Output directory (default: `./storage/downloads`)
