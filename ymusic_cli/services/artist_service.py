@@ -108,66 +108,91 @@ class ArtistService:
             logger.error(f"Error fetching artist tracks: {e}")
             return []
 
-    async def get_all_similar_artists(self, artist_id: str) -> List[Any]:
-        """Get ALL similar artists (up to 50) using direct API endpoint.
+    async def get_all_similar_artists(self, artist_id: str, max_retries: int = 2) -> List[Any]:
+        """Get ALL similar artists (up to 50) using direct API endpoint with retry logic.
 
         Args:
             artist_id: Yandex Music artist ID
+            max_retries: Maximum number of retry attempts for connection errors (default: 2)
 
         Returns:
             List of similar artist objects (up to 50)
         """
-        try:
-            logger.debug(f"Getting all similar artists for artist {artist_id}")
+        for attempt in range(max_retries):
+            try:
+                logger.debug(f"Getting all similar artists for artist {artist_id} (attempt {attempt + 1}/{max_retries})")
 
-            # Use direct API endpoint to get all 50 similar artists
-            url = f'{self.client.base_url}/artists/{artist_id}/similar'
-            logger.debug(f"Making request to URL: {url}")
+                # Use direct API endpoint to get all 50 similar artists
+                url = f'{self.client.base_url}/artists/{artist_id}/similar'
+                logger.debug(f"Making request to URL: {url}")
 
-            result = await asyncio.to_thread(self.client._request.get, url)
-            logger.debug(f"API response keys: {list(result.keys()) if result else 'None'}")
+                result = await asyncio.to_thread(self.client._request.get, url)
+                logger.debug(f"API response keys: {list(result.keys()) if result else 'None'}")
 
-            if not result or 'similar_artists' not in result:
-                logger.warning(f"No similar_artists key in API response for artist {artist_id}")
-                # Fallback to brief info method
-                return await self._get_similar_artists_fallback(artist_id)
+                if not result or 'similar_artists' not in result:
+                    logger.warning(f"No similar_artists key in API response for artist {artist_id}")
+                    # Fallback to brief info method
+                    return await self._get_similar_artists_fallback(artist_id)
 
-            similar_data = result.get('similar_artists', [])
-            if not similar_data:
-                logger.warning(f"Empty similar_artists list for artist {artist_id}")
-                return await self._get_similar_artists_fallback(artist_id)
+                similar_data = result.get('similar_artists', [])
+                if not similar_data:
+                    logger.warning(f"Empty similar_artists list for artist {artist_id}")
+                    return await self._get_similar_artists_fallback(artist_id)
 
-            # Convert dict objects to Artist objects
-            similar_artists = []
-            logger.debug(f"Processing {len(similar_data)} similar artists from API")
+                # Convert dict objects to Artist objects
+                similar_artists = []
+                logger.debug(f"Processing {len(similar_data)} similar artists from API")
 
-            conversion_errors = 0
-            for i, artist_dict in enumerate(similar_data):
-                try:
-                    artist_obj = Artist.de_json(artist_dict, self.client)
-                    if artist_obj:
-                        similar_artists.append(artist_obj)
-                        logger.debug(f"✓ Converted artist {i+1}: {artist_dict.get('name', 'Unknown')}")
-                    else:
-                        logger.warning(f"✗ Artist.de_json returned None for {artist_dict.get('name', 'Unknown')}")
+                conversion_errors = 0
+                for i, artist_dict in enumerate(similar_data):
+                    try:
+                        artist_obj = Artist.de_json(artist_dict, self.client)
+                        if artist_obj:
+                            similar_artists.append(artist_obj)
+                            logger.debug(f"✓ Converted artist {i+1}: {artist_dict.get('name', 'Unknown')}")
+                        else:
+                            logger.warning(f"✗ Artist.de_json returned None for {artist_dict.get('name', 'Unknown')}")
+                            conversion_errors += 1
+                    except Exception as e:
+                        logger.error(f"✗ Exception converting artist {i+1}: {e}")
+                        logger.debug(f"Artist dict: {artist_dict}")
                         conversion_errors += 1
-                except Exception as e:
-                    logger.error(f"✗ Exception converting artist {i+1}: {e}")
-                    logger.debug(f"Artist dict: {artist_dict}")
-                    conversion_errors += 1
+                        continue
+
+                logger.debug(f"Converted {len(similar_artists)}/{len(similar_data)} similar artists (errors: {conversion_errors})")
+
+                if len(similar_artists) == 0:
+                    logger.warning(f"All conversions failed, using fallback for artist {artist_id}")
+                    return await self._get_similar_artists_fallback(artist_id)
+
+                return similar_artists
+
+            except Exception as e:
+                error_str = str(e)
+                # Check if it's a transient network error
+                is_network_error = any(keyword in error_str.lower() for keyword in [
+                    'connection', 'reset by peer', 'timeout', 'timed out', 'remote end closed'
+                ])
+
+                if attempt < max_retries - 1 and is_network_error:
+                    # Retry with exponential backoff for transient errors
+                    delay = 2 ** attempt  # 1s, 2s
+                    logger.debug(f"Network error for artist {artist_id} similar artists (attempt {attempt + 1}/{max_retries}), retrying in {delay}s...")
+                    await asyncio.sleep(delay)
                     continue
 
-            logger.debug(f"Converted {len(similar_artists)}/{len(similar_data)} similar artists (errors: {conversion_errors})")
+                # Final attempt or non-retryable error
+                if is_network_error:
+                    logger.warning(f"Network error getting similar artists for {artist_id} after {attempt + 1} attempts: {e}")
+                else:
+                    logger.error(f"Unexpected error in get_all_similar_artists for {artist_id}: {e}")
 
-            if len(similar_artists) == 0:
-                logger.warning(f"All conversions failed, using fallback for artist {artist_id}")
+                # Use fallback after all retries exhausted
+                logger.info(f"Using fallback method for similar artists of {artist_id}")
                 return await self._get_similar_artists_fallback(artist_id)
 
-            return similar_artists
-
-        except Exception as e:
-            logger.error(f"Unexpected error in get_all_similar_artists for {artist_id}: {e}")
-            return await self._get_similar_artists_fallback(artist_id)
+        # Should not reach here, but use fallback as safety
+        return await self._get_similar_artists_fallback(artist_id)
 
     async def _get_similar_artists_fallback(self, artist_id: str) -> List[Any]:
         """Fallback method to get similar artists using brief info.

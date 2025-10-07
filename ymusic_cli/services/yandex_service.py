@@ -431,11 +431,14 @@ class YandexMusicService(MusicService):
             if self.cache:
                 self.logger.debug(f"Caching result for key: {cache_key}")
                 await self.cache.set(cache_key, artists, ttl_seconds=86400)  # 24 hours
-            
+
             return artists
-            
+
         except Exception as e:
             self.logger.error(f"Error getting similar artists for {artist_id}: {e}", exc_info=True)
+            # Cache errors for 5 seconds for immediate retry
+            if self.cache:
+                await self.cache.set(cache_key, [], ttl_seconds=5)
             raise ServiceError(f"Failed to get similar artists: {e}", "yandex_music")
     
     async def get_track_download_info(self, track: Track) -> Optional[str]:
