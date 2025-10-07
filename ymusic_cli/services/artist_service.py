@@ -197,23 +197,44 @@ class ArtistService:
             logger.error(f"Error in fallback similar artists for {artist_id}: {e}")
             return []
 
-    async def get_artist_info(self, artist_id: str) -> Optional[Any]:
-        """Get detailed artist information.
+    async def get_artist_info(self, artist_id: str, max_retries: int = 3) -> Optional[Any]:
+        """Get detailed artist information with retry logic for transient network errors.
 
         Args:
             artist_id: Yandex Music artist ID
+            max_retries: Maximum number of retry attempts for connection errors
 
         Returns:
             Artist object or None if not found
         """
-        try:
-            artists = await asyncio.to_thread(self.client.artists, artist_id)
-            if artists and len(artists) > 0:
-                return artists[0]
-            return None
-        except Exception as e:
-            logger.error(f"Error getting artist info for {artist_id}: {e}")
-            return None
+        for attempt in range(max_retries):
+            try:
+                artists = await asyncio.to_thread(self.client.artists, artist_id)
+                if artists and len(artists) > 0:
+                    return artists[0]
+                return None
+            except Exception as e:
+                error_str = str(e)
+                # Check if it's a transient network error
+                is_network_error = any(keyword in error_str.lower() for keyword in [
+                    'connection', 'reset by peer', 'timeout', 'timed out'
+                ])
+
+                if attempt < max_retries - 1 and is_network_error:
+                    # Retry with exponential backoff for transient errors
+                    delay = 2 ** attempt  # 1s, 2s, 4s
+                    logger.debug(f"Network error for artist {artist_id} (attempt {attempt + 1}/{max_retries}), retrying in {delay}s...")
+                    await asyncio.sleep(delay)
+                    continue
+
+                # Final attempt or non-retryable error
+                if is_network_error:
+                    logger.warning(f"Network error getting artist info for {artist_id} after {attempt + 1} attempts: {e}")
+                else:
+                    logger.error(f"Error getting artist info for {artist_id}: {e}")
+                return None
+
+        return None
 
     async def get_artist_country(self, artist_id: str) -> Optional[str]:
         """Get artist's country/region.

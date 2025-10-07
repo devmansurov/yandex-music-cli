@@ -415,11 +415,11 @@ class YandexMusicService(MusicService):
                     track_count = getattr(ya_artist.counts, 'tracks', 0) or 0
                 
                 self.logger.debug(f"Processing similar artist {i+1}: {ya_artist.name} (ID: {ya_artist.id}, tracks: {track_count})")
-                
+
                 artist = Artist(
                     id=str(ya_artist.id),
                     name=ya_artist.name,
-                    country=await self._get_artist_country(str(ya_artist.id)),
+                    country=self._extract_country(ya_artist),  # Use existing data instead of API call
                     genres=self._extract_genres(ya_artist),
                     track_count=track_count,
                     similarity_score=(1.0 - (i / len(similar_artists_raw))) if similar_artists_raw else 0.0
